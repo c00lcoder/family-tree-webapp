@@ -49,7 +49,9 @@ export function FamilyChart({ data, onSelect }: FamilyChartProps) {
         chart.updateTree();
       });
 
-    chart.updateTree({ initial: true });
+    // `tree_position: "fit"` works around upstream issue #88 (tree not filling
+    // the container on first render).
+    chart.updateTree({ initial: true, tree_position: "fit" });
 
     return () => {
       cont.innerHTML = "";
