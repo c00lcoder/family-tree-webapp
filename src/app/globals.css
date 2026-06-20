@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+/*
+ * Accessibility-first theme: large base font, high-contrast colors, generous
+ * spacing. Tuned to be readable on small phones and easy to tap.
+ */
+:root {
+  --background: #f8faf9;
+  --foreground: #0f1a14;
+  --card: #ffffff;
+  --card-foreground: #0f1a14;
+  --primary: #15803d; /* green-700 */
+  --primary-foreground: #ffffff;
+  --muted: #eef2f0;
+  --muted-foreground: #44524b;
+  --border: #d4ddd8;
+  --ring: #15803d;
+  --destructive: #b91c1c;
+  --radius: 0.875rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --font-sans: var(--font-geist-sans);
+  --radius-lg: var(--radius);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0b1410;
+    --foreground: #e7efe9;
+    --card: #12201a;
+    --card-foreground: #e7efe9;
+    --primary: #22c55e; /* green-500 */
+    --primary-foreground: #06140c;
+    --muted: #1a2a22;
+    --muted-foreground: #a8b8b0;
+    --border: #243a30;
+    --ring: #22c55e;
+    --destructive: #f87171;
+  }
+}
+
+html {
+  /* Bigger base type for readability. */
+  font-size: 17px;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Clear, visible focus for keyboard users. */
+:focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
