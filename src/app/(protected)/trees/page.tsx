@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TreePine } from "lucide-react";
+import { Logo } from "@/components/logo";
 import { getCurrentDbUser } from "@/lib/auth";
 import { listTreesForUser } from "@/lib/db/queries";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
@@ -19,7 +19,7 @@ export default async function TreesPage() {
       {trees.length === 0 ? (
         <Card className="mt-8">
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-            <TreePine className="h-12 w-12 text-primary" aria-hidden />
+            <Logo className="h-12 w-12" />
             <p className="text-lg text-muted-foreground">
               You don&apos;t have any trees yet.
             </p>

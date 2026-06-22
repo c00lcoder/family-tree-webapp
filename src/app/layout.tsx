@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#15803d",
+  themeColor: "#8a5a2b",
   width: "device-width",
   initialScale: 1,
   // Allow zooming for accessibility.

@@ -5,17 +5,18 @@
  * spacing. Tuned to be readable on small phones and easy to tap.
  */
 :root {
-  --background: #f8faf9;
-  --foreground: #0f1a14;
-  --card: #ffffff;
-  --card-foreground: #0f1a14;
-  --primary: #15803d; /* green-700 */
-  --primary-foreground: #ffffff;
-  --muted: #eef2f0;
-  --muted-foreground: #44524b;
-  --border: #d4ddd8;
-  --ring: #15803d;
-  --destructive: #b91c1c;
+  /* Sepia: warm cream paper, espresso ink, caramel accents. */
+  --background: #f3e8d6;
+  --foreground: #3a2c1e;
+  --card: #fbf4e6;
+  --card-foreground: #3a2c1e;
+  --primary: #8a5a2b; /* sepia / caramel brown */
+  --primary-foreground: #fbf4e6;
+  --muted: #e8dac1;
+  --muted-foreground: #6e5a44;
+  --border: #d8c3a2;
+  --ring: #8a5a2b;
+  --destructive: #a2402b;
   --radius: 0.875rem;
 }
 
@@ -37,17 +38,18 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0b1410;
-    --foreground: #e7efe9;
-    --card: #12201a;
-    --card-foreground: #e7efe9;
-    --primary: #22c55e; /* green-500 */
-    --primary-foreground: #06140c;
-    --muted: #1a2a22;
-    --muted-foreground: #a8b8b0;
-    --border: #243a30;
-    --ring: #22c55e;
-    --destructive: #f87171;
+    /* Sepia, after dark: deep walnut with warm caramel accents. */
+    --background: #20160f;
+    --foreground: #ece0cf;
+    --card: #2c2018;
+    --card-foreground: #ece0cf;
+    --primary: #cf9a5b; /* lighter caramel for contrast */
+    --primary-foreground: #20160f;
+    --muted: #352619;
+    --muted-foreground: #c3ad93;
+    --border: #463422;
+    --ring: #cf9a5b;
+    --destructive: #e08368;
   }
 }
 

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
-import { TreePine } from "lucide-react";
+import { Logo } from "@/components/logo";
 
 export default function ProtectedLayout({
   children,
@@ -15,7 +15,7 @@ export default function ProtectedLayout({
             href="/trees"
             className="flex items-center gap-2 text-lg font-extrabold"
           >
-            <TreePine className="h-7 w-7 text-primary" aria-hidden />
+            <Logo className="h-7 w-7" />
             Family Tree
           </Link>
           <UserButton

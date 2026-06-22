@@ -1,15 +1,42 @@
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
-import { TreePine, Upload, Users, Smartphone } from "lucide-react";
+import { UserButton } from "@clerk/nextjs";
+import { Upload, Users, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/logo";
 
 export default async function Home() {
   const { userId } = await auth();
   const signedIn = Boolean(userId);
   return (
-    <main className="flex flex-1 flex-col items-center px-5 py-12">
+    <>
+      <header className="border-b border-border">
+        <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-5">
+          <span className="flex items-center gap-2 text-lg font-extrabold">
+            <Logo className="h-7 w-7" />
+            Family Tree
+          </span>
+          {signedIn ? (
+            <div className="flex items-center gap-3">
+              <Link href="/trees">
+                <Button size="sm" variant="secondary">
+                  My trees
+                </Button>
+              </Link>
+              <UserButton appearance={{ elements: { avatarBox: "h-10 w-10" } }} />
+            </div>
+          ) : (
+            <Link href="/sign-in">
+              <Button size="sm" variant="secondary">
+                Sign in
+              </Button>
+            </Link>
+          )}
+        </div>
+      </header>
+      <main className="flex flex-1 flex-col items-center px-5 py-12">
       <section className="flex w-full max-w-2xl flex-col items-center text-center">
-        <TreePine className="h-16 w-16 text-primary" aria-hidden />
+        <Logo className="h-16 w-16" />
         <h1 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">
           Your family tree, made simple
         </h1>
@@ -59,7 +86,8 @@ export default async function Home() {
           body="Installable on your phone, fast and accessible by design."
         />
       </section>
-    </main>
+      </main>
+    </>
   );
 }
 
