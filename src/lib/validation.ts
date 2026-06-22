@@ -70,3 +70,8 @@ export const addMemberSchema = z.object({
   email: z.string().email(),
   role: z.enum(["admin", "member"]).default("member"),
 });
+
+export const createStorySchema = z.object({
+  title: z.string().trim().max(200).optional(),
+  body: z.string().trim().min(1, "Story can't be empty").max(20000),
+});

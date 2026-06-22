@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BookText, ImagePlus, UserPlus, X } from "lucide-react";
+import { BookText, ImagePlus, ScrollText, UserPlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { uploadImage } from "@/lib/media";
@@ -16,6 +16,16 @@ interface PersonSource {
   author: string | null;
   publication: string | null;
   repositoryName: string | null;
+}
+
+interface PersonStory {
+  id: string;
+  title: string | null;
+  body: string;
+  createdAt: string;
+  authorName: string | null;
+  authorEmail: string | null;
+  canDelete: boolean;
 }
 
 interface PersonEditorProps {
@@ -52,6 +62,9 @@ export function PersonEditor({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sources, setSources] = useState<PersonSource[]>([]);
+  const [stories, setStories] = useState<PersonStory[]>([]);
+  const [storyTitle, setStoryTitle] = useState("");
+  const [storyBody, setStoryBody] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -65,6 +78,54 @@ export function PersonEditor({
       active = false;
     };
   }, [person.id]);
+
+  async function loadStories() {
+    const res = await fetch(`/api/persons/${person.id}/stories`);
+    if (res.ok) setStories(await res.json());
+  }
+
+  useEffect(() => {
+    let active = true;
+    fetch(`/api/persons/${person.id}/stories`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: PersonStory[]) => {
+        if (active) setStories(data);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [person.id]);
+
+  async function handleAddStory() {
+    if (!storyBody.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/persons/${person.id}/stories`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: storyTitle || undefined,
+          body: storyBody,
+        }),
+      });
+      if (!res.ok) throw new Error("Could not save story");
+      setStoryTitle("");
+      setStoryBody("");
+      await loadStories();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDeleteStory(storyId: string) {
+    if (!confirm("Delete this story?")) return;
+    await fetch(`/api/stories/${storyId}`, { method: "DELETE" });
+    await loadStories();
+  }
 
   // Add-relative sub-form state.
   const [relationship, setRelationship] =
@@ -316,6 +377,63 @@ export function PersonEditor({
             </ul>
           </div>
         )}
+
+        <div className="mt-6 border-t border-border pt-5">
+          <h3 className="flex items-center gap-2 text-lg font-bold">
+            <ScrollText className="h-5 w-5 text-primary" aria-hidden />
+            Stories ({stories.length})
+          </h3>
+          <ul className="mt-3 space-y-3">
+            {stories.map((s) => (
+              <li key={s.id} className="rounded-lg border border-border p-3">
+                {s.title ? <p className="font-semibold">{s.title}</p> : null}
+                <p className="mt-1 whitespace-pre-wrap text-sm">{s.body}</p>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    by {s.authorName ?? s.authorEmail ?? "Unknown"}
+                  </span>
+                  {s.canDelete && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteStory(s.id)}
+                    >
+                      Delete
+                    </Button>
+                  )}
+                </div>
+              </li>
+            ))}
+            {stories.length === 0 ? (
+              <li className="text-sm text-muted-foreground">
+                No stories yet.
+                {canEdit ? " Share a memory below." : ""}
+              </li>
+            ) : null}
+          </ul>
+          {canEdit && (
+            <div className="mt-3 space-y-2">
+              <Input
+                placeholder="Title (optional)"
+                value={storyTitle}
+                maxLength={200}
+                onChange={(e) => setStoryTitle(e.target.value)}
+              />
+              <Textarea
+                placeholder="Share a memory about this person…"
+                value={storyBody}
+                onChange={(e) => setStoryBody(e.target.value)}
+              />
+              <Button
+                variant="secondary"
+                onClick={handleAddStory}
+                disabled={busy || !storyBody.trim()}
+              >
+                Add story
+              </Button>
+            </div>
+          )}
+        </div>
 
         {canEdit && (
           <div className="mt-6 flex items-center justify-between gap-3">

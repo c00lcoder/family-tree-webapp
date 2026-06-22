@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray, isNotNull, or } from "drizzle-orm";
 import { db } from "./index";
 import {
+  users,
   trees,
   treeMembers,
   treeInvites,
@@ -11,6 +12,7 @@ import {
   media,
   sources,
   citations,
+  stories,
 } from "./schema";
 import {
   toFamilyChart,
@@ -395,6 +397,24 @@ export async function getTreeSources(treeId: string): Promise<TreeSource[]> {
       references: bySource.get(s.id) ?? [],
     }))
     .sort((a, b) => b.references.length - a.references.length);
+}
+
+/** Stories attached to a person, newest first, with the author's name. */
+export async function getPersonStories(personId: string) {
+  return db
+    .select({
+      id: stories.id,
+      title: stories.title,
+      body: stories.body,
+      createdAt: stories.createdAt,
+      authorId: stories.authorId,
+      authorName: users.name,
+      authorEmail: users.email,
+    })
+    .from(stories)
+    .leftJoin(users, eq(stories.authorId, users.id))
+    .where(eq(stories.personId, personId))
+    .orderBy(desc(stories.createdAt));
 }
 
 /** Source citations attached to a person (and their events). */

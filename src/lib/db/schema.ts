@@ -299,6 +299,34 @@ export const citations = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// Stories — memories family members attach to a person's profile
+// ---------------------------------------------------------------------------
+export const stories = pgTable(
+  "stories",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    treeId: uuid("tree_id")
+      .notNull()
+      .references(() => trees.id, { onDelete: "cascade" }),
+    personId: uuid("person_id")
+      .notNull()
+      .references(() => persons.id, { onDelete: "cascade" }),
+    authorId: uuid("author_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    title: text("title"),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("stories_person_idx").on(t.personId)],
+);
+
+// ---------------------------------------------------------------------------
 // Relations (Drizzle query helpers)
 // ---------------------------------------------------------------------------
 export const usersRelations = relations(users, ({ many }) => ({
