@@ -343,6 +343,60 @@ export async function getTreePlaces(treeId: string): Promise<PlaceGroup[]> {
   return Array.from(byPlace.values()).sort((a, b) => b.count - a.count);
 }
 
+export interface TreeSource {
+  id: string;
+  title: string | null;
+  author: string | null;
+  publication: string | null;
+  repositoryName: string | null;
+  references: {
+    personName: string | null;
+    eventType: string | null;
+    page: string | null;
+  }[];
+}
+
+/** All sources in a tree with the entries that cite them. */
+export async function getTreeSources(treeId: string): Promise<TreeSource[]> {
+  const [srcRows, citeRows] = await Promise.all([
+    db.select().from(sources).where(eq(sources.treeId, treeId)),
+    db
+      .select({
+        sourceId: citations.sourceId,
+        eventType: citations.eventType,
+        page: citations.page,
+        givenName: persons.givenName,
+        surname: persons.surname,
+      })
+      .from(citations)
+      .leftJoin(persons, eq(citations.personId, persons.id))
+      .where(eq(citations.treeId, treeId)),
+  ]);
+
+  const bySource = new Map<string, TreeSource["references"]>();
+  for (const c of citeRows) {
+    const list = bySource.get(c.sourceId) ?? [];
+    list.push({
+      personName:
+        [c.givenName, c.surname].filter(Boolean).join(" ").trim() || null,
+      eventType: c.eventType,
+      page: c.page,
+    });
+    bySource.set(c.sourceId, list);
+  }
+
+  return srcRows
+    .map((s) => ({
+      id: s.id,
+      title: s.title,
+      author: s.author,
+      publication: s.publication,
+      repositoryName: s.repositoryName,
+      references: bySource.get(s.id) ?? [],
+    }))
+    .sort((a, b) => b.references.length - a.references.length);
+}
+
 /** Source citations attached to a person (and their events). */
 export async function getPersonSources(personId: string) {
   return db

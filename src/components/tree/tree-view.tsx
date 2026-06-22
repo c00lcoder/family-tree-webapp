@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Download, MapPin, Upload, UserPlus } from "lucide-react";
+import { BookText, Download, MapPin, Upload, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FamilyChart } from "@/components/tree/family-chart";
 import { PersonEditor } from "@/components/tree/person-editor";
@@ -91,6 +91,12 @@ export function TreeView({ treeId, canEdit }: TreeViewProps) {
             </Link>
           </>
         )}
+        <Link href={`/trees/${treeId}/sources`}>
+          <Button variant="secondary">
+            <BookText className="h-5 w-5" aria-hidden />
+            Sources
+          </Button>
+        </Link>
         <Link href={`/trees/${treeId}/places`}>
           <Button variant="secondary">
             <MapPin className="h-5 w-5" aria-hidden />
