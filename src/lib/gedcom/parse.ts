@@ -1,7 +1,9 @@
 import type {
+  GedcomCitation,
   GedcomEvent,
   GedcomFamily,
   GedcomIndividual,
+  GedcomSource,
   NormalizedGedcom,
   Sex,
 } from "./types";
@@ -146,6 +148,81 @@ function parseSex(node: GedcomNode): Sex {
   return value === "M" || value === "F" ? value : "U";
 }
 
+const EVENT_TAGS = new Set([
+  "BIRT",
+  "DEAT",
+  "MARR",
+  "DIV",
+  "BURI",
+  "CHR",
+  "BAPM",
+  "ENGA",
+]);
+
+function citationsFrom(
+  node: GedcomNode,
+  eventType?: string,
+): GedcomCitation[] {
+  const out: GedcomCitation[] = [];
+  for (const child of node.children) {
+    if (child.tag !== "SOUR") continue;
+    const ref = child.value?.trim();
+    if (!ref) continue; // inline (non-pointer) sources are skipped for now
+    const page = findChild(child, "PAGE")?.value?.trim();
+    out.push({
+      sourceXref: ref,
+      ...(page ? { page } : {}),
+      ...(eventType ? { eventType } : {}),
+    });
+  }
+  return out;
+}
+
+/** Person-level citations plus citations attached to each of the person's events. */
+function extractCitations(node: GedcomNode): GedcomCitation[] {
+  const out = citationsFrom(node);
+  for (const child of node.children) {
+    if (EVENT_TAGS.has(child.tag)) {
+      out.push(...citationsFrom(child, child.tag));
+    }
+  }
+  return out;
+}
+
+function buildRepositoryNames(nodes: GedcomNode[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const node of nodes) {
+    if (node.tag === "REPO" && node.xref) {
+      const name = findChild(node, "NAME")?.value?.trim();
+      if (name) map.set(node.xref, name);
+    }
+  }
+  return map;
+}
+
+function extractSources(
+  nodes: GedcomNode[],
+  repoNames: Map<string, string>,
+): GedcomSource[] {
+  const sources: GedcomSource[] = [];
+  for (const node of nodes) {
+    if (node.tag !== "SOUR" || !node.xref) continue;
+    const title = findChild(node, "TITL")?.value?.trim();
+    const author = findChild(node, "AUTH")?.value?.trim();
+    const publication = findChild(node, "PUBL")?.value?.trim();
+    const repoRef = findChild(node, "REPO")?.value?.trim();
+    const repositoryName = repoRef ? repoNames.get(repoRef) : undefined;
+    sources.push({
+      xref: node.xref,
+      ...(title ? { title } : {}),
+      ...(author ? { author } : {}),
+      ...(publication ? { publication } : {}),
+      ...(repositoryName ? { repositoryName } : {}),
+    });
+  }
+  return sources;
+}
+
 export function parseGedcom(input: string | Uint8Array): NormalizedGedcom {
   const text =
     typeof input === "string" ? input : new TextDecoder("utf-8").decode(input);
@@ -153,6 +230,8 @@ export function parseGedcom(input: string | Uint8Array): NormalizedGedcom {
 
   const individuals: GedcomIndividual[] = [];
   const families: GedcomFamily[] = [];
+  const repoNames = buildRepositoryNames(nodes);
+  const sources = extractSources(nodes, repoNames);
 
   for (const node of nodes) {
     if (node.tag === "INDI" && node.xref) {
@@ -166,6 +245,7 @@ export function parseGedcom(input: string | Uint8Array): NormalizedGedcom {
         sex: parseSex(node),
         ...(notes ? { notes } : {}),
         events: extractEvents(node),
+        citations: extractCitations(node),
       });
     } else if (node.tag === "FAM" && node.xref) {
       const husband = findChild(node, "HUSB")?.value?.trim();
@@ -184,5 +264,5 @@ export function parseGedcom(input: string | Uint8Array): NormalizedGedcom {
     }
   }
 
-  return { individuals, families };
+  return { individuals, families, sources };
 }

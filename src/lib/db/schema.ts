@@ -253,6 +253,52 @@ export const events = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// Sources & citations (GEDCOM SOUR records + references)
+// ---------------------------------------------------------------------------
+export const sources = pgTable(
+  "sources",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    treeId: uuid("tree_id")
+      .notNull()
+      .references(() => trees.id, { onDelete: "cascade" }),
+    gedcomXref: text("gedcom_xref"),
+    title: text("title"),
+    author: text("author"),
+    publication: text("publication"),
+    repositoryName: text("repository_name"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("sources_tree_idx").on(t.treeId)],
+);
+
+// A citation links a source to a person (optionally tagged with the event it
+// supports, e.g. BIRT) with a page reference.
+export const citations = pgTable(
+  "citations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    treeId: uuid("tree_id")
+      .notNull()
+      .references(() => trees.id, { onDelete: "cascade" }),
+    sourceId: uuid("source_id")
+      .notNull()
+      .references(() => sources.id, { onDelete: "cascade" }),
+    personId: uuid("person_id")
+      .notNull()
+      .references(() => persons.id, { onDelete: "cascade" }),
+    eventType: text("event_type"),
+    page: text("page"),
+  },
+  (t) => [
+    index("citations_person_idx").on(t.personId),
+    index("citations_source_idx").on(t.sourceId),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // Relations (Drizzle query helpers)
 // ---------------------------------------------------------------------------
 export const usersRelations = relations(users, ({ many }) => ({

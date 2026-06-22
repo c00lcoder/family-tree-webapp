@@ -1,11 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import { ImagePlus, UserPlus, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { BookText, ImagePlus, UserPlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { uploadImage } from "@/lib/media";
 import type { PersonRecord } from "@/components/tree/tree-view";
+
+interface PersonSource {
+  citationId: string;
+  eventType: string | null;
+  page: string | null;
+  title: string | null;
+  author: string | null;
+  publication: string | null;
+  repositoryName: string | null;
+}
 
 interface PersonEditorProps {
   treeId: string;
@@ -25,6 +35,16 @@ const RELATIONSHIP_OPTIONS = [
   { value: "sister", label: "Sister" },
 ] as const;
 
+const EVENT_LABELS: Record<string, string> = {
+  BIRT: "Birth",
+  DEAT: "Death",
+  MARR: "Marriage",
+  DIV: "Divorce",
+  BURI: "Burial",
+  CHR: "Christening",
+  BAPM: "Baptism",
+};
+
 export function PersonEditor({
   treeId,
   person,
@@ -40,6 +60,20 @@ export function PersonEditor({
   const [avatarMediaId, setAvatarMediaId] = useState(person.avatarMediaId);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sources, setSources] = useState<PersonSource[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    fetch(`/api/persons/${person.id}/sources`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: PersonSource[]) => {
+        if (active) setSources(data);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [person.id]);
 
   // Add-relative sub-form state.
   const [relationship, setRelationship] =
@@ -260,6 +294,42 @@ export function PersonEditor({
             {error}
           </p>
         ) : null}
+
+        {sources.length > 0 && (
+          <div className="mt-6 border-t border-border pt-5">
+            <h3 className="flex items-center gap-2 text-lg font-bold">
+              <BookText className="h-5 w-5 text-primary" aria-hidden />
+              Sources ({sources.length})
+            </h3>
+            <ul className="mt-3 space-y-2">
+              {sources.map((s) => (
+                <li
+                  key={s.citationId}
+                  className="rounded-lg border border-border p-3 text-sm"
+                >
+                  <p className="font-semibold">
+                    {s.title ?? "Untitled source"}
+                  </p>
+                  {s.repositoryName ? (
+                    <p className="text-muted-foreground">{s.repositoryName}</p>
+                  ) : null}
+                  {s.eventType || s.page ? (
+                    <p className="text-muted-foreground">
+                      {[
+                        s.eventType
+                          ? (EVENT_LABELS[s.eventType] ?? s.eventType)
+                          : null,
+                        s.page,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {canEdit && (
           <div className="mt-6 flex items-center justify-between gap-3">

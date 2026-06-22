@@ -9,6 +9,8 @@ import {
   familyChildren,
   events,
   media,
+  sources,
+  citations,
 } from "./schema";
 import {
   toFamilyChart,
@@ -299,6 +301,23 @@ export async function getTreeExportData(treeId: string) {
 
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
+}
+
+/** Source citations attached to a person (and their events). */
+export async function getPersonSources(personId: string) {
+  return db
+    .select({
+      citationId: citations.id,
+      eventType: citations.eventType,
+      page: citations.page,
+      title: sources.title,
+      author: sources.author,
+      publication: sources.publication,
+      repositoryName: sources.repositoryName,
+    })
+    .from(citations)
+    .innerJoin(sources, eq(citations.sourceId, sources.id))
+    .where(eq(citations.personId, personId));
 }
 
 /**

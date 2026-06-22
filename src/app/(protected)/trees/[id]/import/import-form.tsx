@@ -10,6 +10,8 @@ interface ImportResult {
   families: number;
   children: number;
   events: number;
+  sources: number;
+  citations: number;
 }
 
 export function ImportForm({ treeId }: { treeId: string }) {
@@ -79,6 +81,8 @@ export function ImportForm({ treeId }: { treeId: string }) {
             <li>{result.families} families</li>
             <li>{result.children} parent-child links</li>
             <li>{result.events} events</li>
+            <li>{result.sources} sources</li>
+            <li>{result.citations} source citations</li>
           </ul>
           <Button
             type="button"

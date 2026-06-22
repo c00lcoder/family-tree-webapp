@@ -6,6 +6,21 @@ export interface GedcomEvent {
   place?: string;
 }
 
+export interface GedcomCitation {
+  sourceXref: string;
+  page?: string;
+  // The event this citation supports (e.g. "BIRT"); absent for person-level.
+  eventType?: string;
+}
+
+export interface GedcomSource {
+  xref: string;
+  title?: string;
+  author?: string;
+  publication?: string;
+  repositoryName?: string;
+}
+
 export interface GedcomIndividual {
   xref: string;
   givenName?: string;
@@ -14,6 +29,7 @@ export interface GedcomIndividual {
   sex: Sex;
   notes?: string;
   events: GedcomEvent[];
+  citations: GedcomCitation[];
 }
 
 export interface GedcomFamily {
@@ -27,4 +43,5 @@ export interface GedcomFamily {
 export interface NormalizedGedcom {
   individuals: GedcomIndividual[];
   families: GedcomFamily[];
+  sources: GedcomSource[];
 }

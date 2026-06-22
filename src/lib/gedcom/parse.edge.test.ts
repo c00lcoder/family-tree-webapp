@@ -56,7 +56,41 @@ describe("parseGedcom edge cases", () => {
   });
 
   it("returns empty result for empty input", () => {
-    expect(parseGedcom("")).toEqual({ individuals: [], families: [] });
+    expect(parseGedcom("")).toEqual({
+      individuals: [],
+      families: [],
+      sources: [],
+    });
+  });
+
+  it("parses sources, repositories, and per-event citations", () => {
+    const ged = [
+      "0 @S1@ SOUR",
+      "1 TITL 1950 United States Federal Census",
+      "1 AUTH Ancestry.com",
+      "1 PUBL Ancestry.com Operations, Inc.",
+      "1 REPO @R1@",
+      "0 @R1@ REPO",
+      "1 NAME Ancestry.com",
+      "0 @I1@ INDI",
+      "1 NAME Anne /Nelson/",
+      "1 BIRT",
+      "2 DATE 1854",
+      "2 SOUR @S1@",
+      "3 PAGE Roll 5569; Page 76",
+      "0 TRLR",
+    ].join("\n");
+    const result = parseGedcom(ged);
+    expect(result.sources).toHaveLength(1);
+    expect(result.sources[0].title).toContain("1950");
+    expect(result.sources[0].author).toBe("Ancestry.com");
+    expect(result.sources[0].repositoryName).toBe("Ancestry.com");
+
+    const indi = result.individuals[0];
+    expect(indi.citations).toHaveLength(1);
+    expect(indi.citations[0].sourceXref).toBe("@S1@");
+    expect(indi.citations[0].eventType).toBe("BIRT");
+    expect(indi.citations[0].page).toContain("Roll 5569");
   });
 
   it("accepts a Uint8Array (UTF-8) input", () => {

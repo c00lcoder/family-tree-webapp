@@ -4,6 +4,8 @@ import {
   families as familiesTable,
   familyChildren as familyChildrenTable,
   events as eventsTable,
+  sources as sourcesTable,
+  citations as citationsTable,
 } from "@/lib/db/schema";
 import { parseGedcom } from "./parse";
 import type { GedcomEvent } from "./types";
@@ -13,6 +15,8 @@ export interface ImportResult {
   families: number;
   children: number;
   events: number;
+  sources: number;
+  citations: number;
 }
 
 const BATCH_SIZE = 500;
@@ -55,7 +59,7 @@ export async function importGedcom(
   treeId: string,
   input: string | Uint8Array,
 ): Promise<ImportResult> {
-  const { individuals, families } = parseGedcom(input);
+  const { individuals, families, sources } = parseGedcom(input);
 
   // 1. Insert persons, building an xref -> new uuid map.
   const xrefToPersonId = new Map<string, string>();
@@ -132,10 +136,57 @@ export async function importGedcom(
   }
   await batchInsert(eventsTable, eventInsertRows);
 
+  // 5. Sources, then citations linking a source to a person.
+  const xrefToSourceId = new Map<string, string>();
+  const sourceRows = sources.map((s) => ({
+    treeId,
+    gedcomXref: s.xref,
+    title: s.title ?? null,
+    author: s.author ?? null,
+    publication: s.publication ?? null,
+    repositoryName: s.repositoryName ?? null,
+  }));
+  for (let i = 0; i < sourceRows.length; i += BATCH_SIZE) {
+    const chunk = sourceRows.slice(i, i + BATCH_SIZE);
+    const inserted = await db
+      .insert(sourcesTable)
+      .values(chunk)
+      .returning({ id: sourcesTable.id, xref: sourcesTable.gedcomXref });
+    for (const row of inserted) {
+      if (row.xref) xrefToSourceId.set(row.xref, row.id);
+    }
+  }
+
+  const citationRows: {
+    treeId: string;
+    sourceId: string;
+    personId: string;
+    eventType: string | null;
+    page: string | null;
+  }[] = [];
+  for (const indi of individuals) {
+    const personId = xrefToPersonId.get(indi.xref);
+    if (!personId) continue;
+    for (const c of indi.citations) {
+      const sourceId = xrefToSourceId.get(c.sourceXref);
+      if (!sourceId) continue;
+      citationRows.push({
+        treeId,
+        sourceId,
+        personId,
+        eventType: c.eventType ?? null,
+        page: c.page ?? null,
+      });
+    }
+  }
+  await batchInsert(citationsTable, citationRows);
+
   return {
     persons: insertedPersons,
     families: xrefToFamilyId.size,
     children: childRows.length,
     events: eventInsertRows.length,
+    sources: xrefToSourceId.size,
+    citations: citationRows.length,
   };
 }
