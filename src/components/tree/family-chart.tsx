@@ -10,9 +10,21 @@ interface FamilyChartProps {
   onSelect?: (id: string) => void;
   orientation?: "vertical" | "horizontal";
   showSiblings?: boolean;
+  /** Tint each card by its generation row. */
+  showGenerations?: boolean;
   /** Bump to force a rebuild + re-fit (e.g. a "recenter" button). */
   fitNonce?: number;
 }
+
+// Subtle sepia accents cycled per generation row.
+const GENERATION_TINTS = [
+  "#8a5a2b",
+  "#b98a4e",
+  "#6e4b2a",
+  "#cf9a5b",
+  "#7c5a36",
+  "#a9762e",
+];
 
 /**
  * Client-only wrapper around the `family-chart` (d3) library. It renders the
@@ -24,6 +36,7 @@ export function FamilyChart({
   onSelect,
   orientation = "vertical",
   showSiblings = false,
+  showGenerations = true,
   fitNonce = 0,
 }: FamilyChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -65,8 +78,10 @@ export function FamilyChart({
           chart.updateTree();
         });
 
-      // Apply each person's avatar focal point (object-position) to their card
-      // image after every render — family-chart only supports object-fit: cover.
+      // After every render: (1) apply each person's avatar focal point
+      // (family-chart only does object-fit: cover) and (2) accent each card by
+      // its generation row. Wrapped so a DOM-shape change upstream can never
+      // break the chart — it just skips the cosmetic pass.
       const focals = new Map(
         data
           .filter((d) => d.data.avatar)
@@ -75,20 +90,57 @@ export function FamilyChart({
             `${d.data.focusX ?? 50}% ${d.data.focusY ?? 50}%`,
           ]),
       );
-      const applyFocals = () => {
-        cont.querySelectorAll<HTMLImageElement>("img").forEach((img) => {
-          const id = img.closest<HTMLElement>("[data-id]")?.dataset.id;
-          const pos = id ? focals.get(id) : undefined;
-          if (pos) img.style.objectPosition = pos;
-        });
+      const applyOverlays = () => {
+        try {
+          // One card element per person id.
+          const seen = new Set<string>();
+          const cards: HTMLElement[] = [];
+          cont
+            .querySelectorAll<HTMLElement>("[data-id]")
+            .forEach((el) => {
+              const id = el.dataset.id;
+              if (!id || seen.has(id)) return;
+              seen.add(id);
+              cards.push(el);
+            });
+
+          // Avatar focal points.
+          for (const el of cards) {
+            const pos = focals.get(el.dataset.id!);
+            if (pos) {
+              const img = el.querySelector("img");
+              if (img) (img as HTMLImageElement).style.objectPosition = pos;
+            }
+          }
+
+          // Generation rows: cluster cards by rendered vertical position.
+          for (const el of cards) el.style.boxShadow = "";
+          if (showGenerations && cards.length) {
+            const withTop = cards
+              .map((el) => ({ el, top: el.getBoundingClientRect().top }))
+              .sort((a, b) => a.top - b.top);
+            let row = -1;
+            let lastTop = -Infinity;
+            for (const { el, top } of withTop) {
+              if (top - lastTop > 24) {
+                row += 1;
+                lastTop = top;
+              }
+              const tint = GENERATION_TINTS[row % GENERATION_TINTS.length];
+              el.style.boxShadow = `inset 0 6px 0 0 ${tint}`;
+            }
+          }
+        } catch {
+          // Cosmetic only — ignore.
+        }
       };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (chart as any).afterUpdate = applyFocals;
+      (chart as any).afterUpdate = applyOverlays;
 
       // `tree_position: "fit"` works around upstream issue #88 (tree not filling
       // the container on first render).
       chart.updateTree({ initial: true, tree_position: "fit" });
-      applyFocals();
+      applyOverlays();
     } catch (err) {
       console.error("Failed to render family chart:", err);
       cont.innerHTML =
@@ -98,7 +150,7 @@ export function FamilyChart({
     return () => {
       cont.innerHTML = "";
     };
-  }, [data, onSelect, orientation, showSiblings, fitNonce]);
+  }, [data, onSelect, orientation, showSiblings, showGenerations, fitNonce]);
 
   return (
     <div

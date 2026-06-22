@@ -37,6 +37,7 @@ export function TreeView({ treeId, canEdit }: TreeViewProps) {
     "vertical",
   );
   const [showSiblings, setShowSiblings] = useState(false);
+  const [showGenerations, setShowGenerations] = useState(true);
   const [fitNonce, setFitNonce] = useState(0);
 
   const peopleList = Object.values(persons);
@@ -159,6 +160,14 @@ export function TreeView({ treeId, canEdit }: TreeViewProps) {
             </Button>
             <Button
               size="sm"
+              variant={showGenerations ? "primary" : "secondary"}
+              aria-pressed={showGenerations}
+              onClick={() => setShowGenerations((s) => !s)}
+            >
+              Generations
+            </Button>
+            <Button
+              size="sm"
               variant="secondary"
               onClick={() => setFitNonce((n) => n + 1)}
             >
@@ -170,6 +179,7 @@ export function TreeView({ treeId, canEdit }: TreeViewProps) {
             onSelect={setSelectedId}
             orientation={orientation}
             showSiblings={showSiblings}
+            showGenerations={showGenerations}
             fitNonce={fitNonce}
           />
         </div>
