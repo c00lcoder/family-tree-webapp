@@ -24,34 +24,42 @@ export function FamilyChart({ data, onSelect }: FamilyChartProps) {
 
     cont.innerHTML = "";
 
-    // family-chart accepts the legacy father/mother/spouses/children shape at
-    // runtime; cast to satisfy the library's normalized type.
-    const chart = f3
-      .createChart(
-        cont,
-        data as unknown as Parameters<typeof f3.createChart>[1],
-      )
-      .setTransitionTime(600)
-      .setCardXSpacing(260)
-      .setCardYSpacing(160)
-      .setOrientationVertical();
+    // Guard the whole build: a render error in the upstream library must never
+    // leave the chart permanently blank with no recovery.
+    try {
+      // family-chart accepts the legacy father/mother/spouses/children shape at
+      // runtime; cast to satisfy the library's normalized type.
+      const chart = f3
+        .createChart(
+          cont,
+          data as unknown as Parameters<typeof f3.createChart>[1],
+        )
+        .setTransitionTime(600)
+        .setCardXSpacing(260)
+        .setCardYSpacing(160)
+        .setOrientationVertical();
 
-    chart
-      .setCardHtml()
-      .setCardDisplay([["first name", "last name"], []])
-      .setStyle("imageRect")
-      .setMiniTree(true)
-      .setOnHoverPathToMain()
-      .setOnCardClick((_e: unknown, d: { data: { id: string } }) => {
-        const id = d?.data?.id;
-        if (id) onSelect?.(id);
-        chart.updateMainId(id);
-        chart.updateTree();
-      });
+      chart
+        .setCardHtml()
+        .setCardDisplay([["first name", "last name"], []])
+        .setStyle("imageRect")
+        .setMiniTree(true)
+        .setOnHoverPathToMain()
+        .setOnCardClick((_e: unknown, d: { data: { id: string } }) => {
+          const id = d?.data?.id;
+          if (id) onSelect?.(id);
+          chart.updateMainId(id);
+          chart.updateTree();
+        });
 
-    // `tree_position: "fit"` works around upstream issue #88 (tree not filling
-    // the container on first render).
-    chart.updateTree({ initial: true, tree_position: "fit" });
+      // `tree_position: "fit"` works around upstream issue #88 (tree not filling
+      // the container on first render).
+      chart.updateTree({ initial: true, tree_position: "fit" });
+    } catch (err) {
+      console.error("Failed to render family chart:", err);
+      cont.innerHTML =
+        '<div class="flex h-full items-center justify-center p-6 text-center text-muted-foreground">Could not draw the tree. Try refreshing.</div>';
+    }
 
     return () => {
       cont.innerHTML = "";

@@ -29,12 +29,12 @@ export const POST = handle(async (req: Request) => {
     })
     .returning();
 
-  let publicUrl: string | null = null;
+  let url: string | null = null;
   try {
-    publicUrl = getStorage().getPublicUrl(row.storageKey);
+    url = await getStorage().createDownloadUrl(row.storageKey);
   } catch {
-    publicUrl = null;
+    url = null;
   }
 
-  return ok({ ...row, publicUrl }, { status: 201 });
+  return ok({ ...row, url }, { status: 201 });
 });

@@ -1,6 +1,7 @@
 import {
   S3Client,
   DeleteObjectCommand,
+  GetObjectCommand,
   PutObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -18,8 +19,13 @@ export interface StorageAdapter {
     contentType: string;
     expiresInSeconds?: number;
   }): Promise<string>;
-  /** Public URL used to render the object. */
+  /**
+   * Direct public URL (only valid when the bucket/domain is configured for
+   * public access). Prefer `createDownloadUrl` for private buckets.
+   */
   getPublicUrl(key: string): string;
+  /** Short-lived signed URL to GET a private object. */
+  createDownloadUrl(key: string, expiresInSeconds?: number): Promise<string>;
   /** Remove an object. */
   delete(key: string): Promise<void>;
 }
@@ -62,6 +68,14 @@ class R2StorageAdapter implements StorageAdapter {
 
   getPublicUrl(key: string): string {
     return `${this.publicBaseUrl}/${key}`;
+  }
+
+  async createDownloadUrl(
+    key: string,
+    expiresInSeconds = 3600,
+  ): Promise<string> {
+    const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });
+    return getSignedUrl(this.client, command, { expiresIn: expiresInSeconds });
   }
 
   async delete(key: string): Promise<void> {

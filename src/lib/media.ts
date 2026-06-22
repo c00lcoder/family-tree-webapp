@@ -13,7 +13,11 @@ export interface UploadedMedia {
 export async function uploadImage(
   treeId: string,
   file: File,
-  options: { personId?: string; caption?: string } = {},
+  options: {
+    personId?: string;
+    caption?: string;
+    category?: "avatar" | "photo";
+  } = {},
 ): Promise<UploadedMedia> {
   const compressed = await imageCompression(file, {
     maxSizeMB: 0.6,
@@ -26,7 +30,13 @@ export async function uploadImage(
   const presignRes = await fetch("/api/media/upload", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ treeId, contentType, fileName: file.name }),
+    body: JSON.stringify({
+      treeId,
+      contentType,
+      fileName: file.name,
+      personId: options.personId,
+      category: options.category ?? "photo",
+    }),
   });
   if (!presignRes.ok) throw new Error("Could not start upload");
   const { uploadUrl, key } = await presignRes.json();

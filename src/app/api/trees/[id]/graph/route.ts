@@ -15,19 +15,26 @@ export const GET = handle(async (_req: Request, ctx: Ctx) => {
 
   const data = await getTreeGraph(id);
 
-  // Resolve avatar storage keys to public URLs (best effort — skip if storage
-  // isn't configured so the graph still renders without photos).
-  let toUrl: ((key: string) => string) | null = null;
+  // Avatar values are storage keys. The graph response is already access-checked
+  // above, so we hand back short-lived presigned GET URLs the browser can load
+  // directly from R2 (bucket stays private; no public access needed).
+  let storage: ReturnType<typeof getStorage> | null = null;
   try {
-    const storage = getStorage();
-    toUrl = (key) => storage.getPublicUrl(key);
+    storage = getStorage();
   } catch {
-    toUrl = null;
+    storage = null;
   }
-  if (toUrl) {
-    for (const datum of data) {
-      if (datum.data.avatar) datum.data.avatar = toUrl(datum.data.avatar);
-    }
+  if (storage) {
+    await Promise.all(
+      data.map(async (datum) => {
+        if (datum.data.avatar) {
+          datum.data.avatar = await storage!.createDownloadUrl(
+            datum.data.avatar,
+            6 * 3600,
+          );
+        }
+      }),
+    );
   }
 
   return ok(data);
