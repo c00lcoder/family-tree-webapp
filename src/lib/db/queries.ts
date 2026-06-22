@@ -6,12 +6,32 @@ import {
   persons,
   families,
   familyChildren,
+  events,
   media,
 } from "./schema";
 import {
   toFamilyChart,
   type FamilyChartDatum,
 } from "@/lib/gedcom/to-family-chart";
+
+export type Relationship =
+  | "father"
+  | "mother"
+  | "spouse"
+  | "son"
+  | "daughter"
+  | "brother"
+  | "sister";
+
+const SEX_BY_RELATIONSHIP: Record<Relationship, "M" | "F" | "U"> = {
+  father: "M",
+  mother: "F",
+  son: "M",
+  daughter: "F",
+  brother: "M",
+  sister: "F",
+  spouse: "U",
+};
 
 export const MAX_ADMINS_PER_TREE = 2;
 
@@ -105,6 +125,7 @@ export async function getTreeGraph(treeId: string): Promise<FamilyChartDatum[]> 
     id: p.id,
     givenName: p.givenName,
     surname: p.surname,
+    suffix: p.suffix,
     sex: p.sex,
     avatarUrl: p.avatarMediaId
       ? (avatarById.get(p.avatarMediaId) ?? null)
@@ -112,6 +133,167 @@ export async function getTreeGraph(treeId: string): Promise<FamilyChartDatum[]> 
   }));
 
   return toFamilyChart(personInput, familyRows, childRows);
+}
+
+/**
+ * Create a new person and wire them to an existing person by `relationship`.
+ * The family-chart layout re-flows automatically once the relationships exist,
+ * so the new card "falls into place" on the next graph load.
+ */
+export async function addRelative(
+  treeId: string,
+  personId: string,
+  relationship: Relationship,
+  data: { givenName?: string; surname?: string; suffix?: string },
+) {
+  const [newPerson] = await db
+    .insert(persons)
+    .values({
+      treeId,
+      givenName: data.givenName ?? null,
+      surname: data.surname ?? null,
+      suffix: data.suffix ?? null,
+      sex: SEX_BY_RELATIONSHIP[relationship],
+    })
+    .returning();
+  const newId = newPerson.id;
+
+  // The family this person belongs to AS A CHILD (their parents' union).
+  const parentFamily = async () => {
+    const rows = await db
+      .select({
+        id: families.id,
+        partner1Id: families.partner1Id,
+        partner2Id: families.partner2Id,
+      })
+      .from(familyChildren)
+      .innerJoin(families, eq(familyChildren.familyId, families.id))
+      .where(
+        and(eq(familyChildren.childId, personId), eq(families.treeId, treeId)),
+      )
+      .limit(1);
+    return rows[0] ?? null;
+  };
+
+  // A family this person is a PARTNER in (their own union).
+  const spouseFamilies = () =>
+    db
+      .select()
+      .from(families)
+      .where(
+        and(
+          eq(families.treeId, treeId),
+          or(
+            eq(families.partner1Id, personId),
+            eq(families.partner2Id, personId),
+          ),
+        ),
+      );
+
+  const setOpenPartnerSlot = async (familyId: string, value: string) => {
+    const [fam] = await db
+      .select()
+      .from(families)
+      .where(eq(families.id, familyId))
+      .limit(1);
+    if (!fam) return false;
+    if (!fam.partner1Id) {
+      await db
+        .update(families)
+        .set({ partner1Id: value })
+        .where(eq(families.id, familyId));
+      return true;
+    }
+    if (!fam.partner2Id) {
+      await db
+        .update(families)
+        .set({ partner2Id: value })
+        .where(eq(families.id, familyId));
+      return true;
+    }
+    return false;
+  };
+
+  if (relationship === "father" || relationship === "mother") {
+    const fam = await parentFamily();
+    if (fam) {
+      const placed = await setOpenPartnerSlot(fam.id, newId);
+      if (!placed) {
+        // Both parent slots already filled — start a fresh union for this parent.
+        const [created] = await db
+          .insert(families)
+          .values({ treeId, partner1Id: newId })
+          .returning();
+        await db
+          .insert(familyChildren)
+          .values({ familyId: created.id, childId: personId });
+      }
+    } else {
+      const [created] = await db
+        .insert(families)
+        .values({ treeId, partner1Id: newId })
+        .returning();
+      await db
+        .insert(familyChildren)
+        .values({ familyId: created.id, childId: personId });
+    }
+  } else if (relationship === "spouse") {
+    const fams = await spouseFamilies();
+    const open = fams.find((f) => !f.partner1Id || !f.partner2Id);
+    if (open) {
+      await setOpenPartnerSlot(open.id, newId);
+    } else {
+      await db
+        .insert(families)
+        .values({ treeId, partner1Id: personId, partner2Id: newId });
+    }
+  } else if (relationship === "son" || relationship === "daughter") {
+    const fams = await spouseFamilies();
+    let familyId = fams[0]?.id;
+    if (!familyId) {
+      const [created] = await db
+        .insert(families)
+        .values({ treeId, partner1Id: personId })
+        .returning();
+      familyId = created.id;
+    }
+    await db.insert(familyChildren).values({ familyId, childId: newId });
+  } else {
+    // brother / sister — share the same parent family.
+    const fam = await parentFamily();
+    let familyId = fam?.id;
+    if (!familyId) {
+      const [created] = await db
+        .insert(families)
+        .values({ treeId })
+        .returning();
+      familyId = created.id;
+      await db
+        .insert(familyChildren)
+        .values({ familyId, childId: personId });
+    }
+    await db.insert(familyChildren).values({ familyId, childId: newId });
+  }
+
+  return newPerson;
+}
+
+/** All rows needed to serialize a tree to GEDCOM. */
+export async function getTreeExportData(treeId: string) {
+  const [personRows, familyRows, childRows, eventRows] = await Promise.all([
+    db.select().from(persons).where(eq(persons.treeId, treeId)),
+    db.select().from(families).where(eq(families.treeId, treeId)),
+    db
+      .select({
+        familyId: familyChildren.familyId,
+        childId: familyChildren.childId,
+      })
+      .from(familyChildren)
+      .innerJoin(families, eq(familyChildren.familyId, families.id))
+      .where(eq(families.treeId, treeId)),
+    db.select().from(events).where(eq(events.treeId, treeId)),
+  ]);
+  return { personRows, familyRows, childRows, eventRows };
 }
 
 /** Count current admins (owner counts as one). */

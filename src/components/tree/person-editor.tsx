@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ImagePlus, X } from "lucide-react";
+import { ImagePlus, UserPlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { uploadImage } from "@/lib/media";
@@ -12,8 +12,18 @@ interface PersonEditorProps {
   person: PersonRecord;
   canEdit: boolean;
   onClose: () => void;
-  onSaved: () => Promise<void> | void;
+  onSaved: (focusPersonId?: string) => Promise<void> | void;
 }
+
+const RELATIONSHIP_OPTIONS = [
+  { value: "father", label: "Father" },
+  { value: "mother", label: "Mother" },
+  { value: "spouse", label: "Spouse" },
+  { value: "son", label: "Son" },
+  { value: "daughter", label: "Daughter" },
+  { value: "brother", label: "Brother" },
+  { value: "sister", label: "Sister" },
+] as const;
 
 export function PersonEditor({
   treeId,
@@ -24,11 +34,18 @@ export function PersonEditor({
 }: PersonEditorProps) {
   const [givenName, setGivenName] = useState(person.givenName ?? "");
   const [surname, setSurname] = useState(person.surname ?? "");
+  const [suffix, setSuffix] = useState(person.suffix ?? "");
   const [sex, setSex] = useState<PersonRecord["sex"]>(person.sex);
   const [notes, setNotes] = useState(person.notes ?? "");
   const [avatarMediaId, setAvatarMediaId] = useState(person.avatarMediaId);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Add-relative sub-form state.
+  const [relationship, setRelationship] =
+    useState<(typeof RELATIONSHIP_OPTIONS)[number]["value"]>("father");
+  const [relGiven, setRelGiven] = useState("");
+  const [relSurname, setRelSurname] = useState("");
 
   async function handleSave() {
     setBusy(true);
@@ -40,6 +57,7 @@ export function PersonEditor({
         body: JSON.stringify({
           givenName: givenName || null,
           surname: surname || null,
+          suffix: suffix || null,
           sex,
           notes: notes || null,
           avatarMediaId,
@@ -79,10 +97,40 @@ export function PersonEditor({
     try {
       const { mediaId } = await uploadImage(treeId, file, {
         personId: person.id,
+        category: "avatar",
       });
       setAvatarMediaId(mediaId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleAddRelative() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/persons/${person.id}/relatives`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          relationship,
+          givenName: relGiven || undefined,
+          surname: relSurname || surname || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Could not add relative");
+      }
+      const created = await res.json();
+      // Reload the tree and jump to editing the newly added person. The parent
+      // re-points the editor at the new person (the editor is keyed by id, so it
+      // remounts with fresh state) — no onClose() here or we'd lose the focus.
+      await onSaved(created.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setBusy(false);
     }
@@ -123,13 +171,25 @@ export function PersonEditor({
               onChange={(e) => setGivenName(e.target.value)}
             />
           </div>
-          <div>
-            <Label htmlFor="surname">Last name</Label>
-            <Input
-              id="surname"
-              value={surname}
-              onChange={(e) => setSurname(e.target.value)}
-            />
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <Label htmlFor="surname">Last name</Label>
+              <Input
+                id="surname"
+                value={surname}
+                onChange={(e) => setSurname(e.target.value)}
+              />
+            </div>
+            <div className="w-24">
+              <Label htmlFor="suffix">Suffix</Label>
+              <Input
+                id="suffix"
+                value={suffix}
+                placeholder="Jr"
+                maxLength={20}
+                onChange={(e) => setSuffix(e.target.value)}
+              />
+            </div>
           </div>
           <div>
             <Label htmlFor="sex">Sex</Label>
@@ -187,6 +247,66 @@ export function PersonEditor({
             <Button onClick={handleSave} disabled={busy}>
               {busy ? "Saving…" : "Save"}
             </Button>
+          </div>
+        )}
+
+        {canEdit && (
+          <div className="mt-6 border-t border-border pt-5">
+            <h3 className="flex items-center gap-2 text-lg font-bold">
+              <UserPlus className="h-5 w-5 text-primary" aria-hidden />
+              Add a relative
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Pick the relationship and the new person is placed in the tree
+              automatically.
+            </p>
+            <fieldset disabled={busy} className="mt-3 space-y-3">
+              <div>
+                <Label htmlFor="relationship">Relationship</Label>
+                <Select
+                  id="relationship"
+                  value={relationship}
+                  onChange={(e) =>
+                    setRelationship(
+                      e.target.value as typeof relationship,
+                    )
+                  }
+                >
+                  {RELATIONSHIP_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <Label htmlFor="rel-given">First name</Label>
+                  <Input
+                    id="rel-given"
+                    value={relGiven}
+                    onChange={(e) => setRelGiven(e.target.value)}
+                  />
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor="rel-surname">Last name</Label>
+                  <Input
+                    id="rel-surname"
+                    value={relSurname}
+                    placeholder={surname}
+                    onChange={(e) => setRelSurname(e.target.value)}
+                  />
+                </div>
+              </div>
+              <Button
+                variant="secondary"
+                onClick={handleAddRelative}
+                disabled={busy}
+                className="w-full"
+              >
+                {busy ? "Adding…" : "Add relative"}
+              </Button>
+            </fieldset>
           </div>
         )}
       </div>

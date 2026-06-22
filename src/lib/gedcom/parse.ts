@@ -105,29 +105,40 @@ function extractEvents(node: GedcomNode): GedcomEvent[] {
 function parseName(node: GedcomNode): {
   givenName?: string;
   surname?: string;
+  suffix?: string;
 } {
   const nameNode = findChild(node, "NAME");
   if (!nameNode) return {};
 
-  // Prefer structured GIVN/SURN if present.
+  // Prefer structured GIVN/SURN/NSFX if present.
   const givn = findChild(nameNode, "GIVN")?.value?.trim();
   const surn = findChild(nameNode, "SURN")?.value?.trim();
-  if (givn || surn) {
+  const nsfx = findChild(nameNode, "NSFX")?.value?.trim();
+  if (givn || surn || nsfx) {
     return {
       ...(givn ? { givenName: givn } : {}),
       ...(surn ? { surname: surn } : {}),
+      ...(nsfx ? { suffix: nsfx } : {}),
     };
   }
 
-  // Otherwise parse "Given Names /Surname/".
+  // Otherwise parse "Given Names /Surname/ Suffix" — anything after the closing
+  // slash (e.g. "Jr", "Sr", "III") is the name suffix.
   const raw = nameNode.value ?? "";
-  const surnameMatch = raw.match(/\/(.*?)\//);
-  const surname = surnameMatch?.[1]?.trim();
-  const givenName = raw.replace(/\/.*?\//, "").trim();
-  return {
-    ...(givenName ? { givenName } : {}),
-    ...(surname ? { surname } : {}),
-  };
+  const match = raw.match(/^(.*?)\/(.*?)\/(.*)$/);
+  if (match) {
+    const givenName = match[1].trim();
+    const surname = match[2].trim();
+    const suffix = match[3].trim();
+    return {
+      ...(givenName ? { givenName } : {}),
+      ...(surname ? { surname } : {}),
+      ...(suffix ? { suffix } : {}),
+    };
+  }
+  // No surname slashes at all — treat the whole value as the given name.
+  const givenName = raw.trim();
+  return givenName ? { givenName } : {};
 }
 
 function parseSex(node: GedcomNode): Sex {
@@ -145,12 +156,13 @@ export function parseGedcom(input: string | Uint8Array): NormalizedGedcom {
 
   for (const node of nodes) {
     if (node.tag === "INDI" && node.xref) {
-      const { givenName, surname } = parseName(node);
+      const { givenName, surname, suffix } = parseName(node);
       const notes = findChild(node, "NOTE")?.value?.trim();
       individuals.push({
         xref: node.xref,
         ...(givenName ? { givenName } : {}),
         ...(surname ? { surname } : {}),
+        ...(suffix ? { suffix } : {}),
         sex: parseSex(node),
         ...(notes ? { notes } : {}),
         events: extractEvents(node),

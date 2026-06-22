@@ -57,4 +57,21 @@ describe("parseGedcom", () => {
     expect(parsed.individuals).toHaveLength(1);
     expect(parsed.individuals[0].surname).toBe("Person");
   });
+
+  it("parses a name suffix after the surname", () => {
+    const ged =
+      "0 @I1@ INDI\n1 NAME Gerald Rolando /Carter/ Jr\n1 SEX M\n0 TRLR\n";
+    const p = parseGedcom(ged).individuals[0];
+    expect(p.givenName).toBe("Gerald Rolando");
+    expect(p.surname).toBe("Carter");
+    expect(p.suffix).toBe("Jr");
+  });
+
+  it("parses a structured NSFX suffix", () => {
+    const ged =
+      "0 @I1@ INDI\n1 NAME William /Smith/\n2 GIVN William\n2 SURN Smith\n2 NSFX III\n0 TRLR\n";
+    const p = parseGedcom(ged).individuals[0];
+    expect(p.surname).toBe("Smith");
+    expect(p.suffix).toBe("III");
+  });
 });

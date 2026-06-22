@@ -10,6 +10,7 @@ export interface GedcomIndividual {
   xref: string;
   givenName?: string;
   surname?: string;
+  suffix?: string;
   sex: Sex;
   notes?: string;
   events: GedcomEvent[];

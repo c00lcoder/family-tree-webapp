@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Upload, UserPlus } from "lucide-react";
+import { Download, Upload, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FamilyChart } from "@/components/tree/family-chart";
 import { PersonEditor } from "@/components/tree/person-editor";
@@ -12,6 +12,7 @@ export interface PersonRecord {
   id: string;
   givenName: string | null;
   surname: string | null;
+  suffix: string | null;
   sex: "M" | "F" | "U";
   notes: string | null;
   avatarMediaId: string | null;
@@ -81,6 +82,12 @@ export function TreeView({ treeId, canEdit }: TreeViewProps) {
             </Link>
           </>
         )}
+        <a href={`/api/trees/${treeId}/export`} download>
+          <Button variant="secondary">
+            <Download className="h-5 w-5" aria-hidden />
+            Export GEDCOM
+          </Button>
+        </a>
       </div>
 
       {loading ? (
@@ -105,12 +112,14 @@ export function TreeView({ treeId, canEdit }: TreeViewProps) {
 
       {selectedId && persons[selectedId] && (
         <PersonEditor
+          key={selectedId}
           treeId={treeId}
           person={persons[selectedId]}
           canEdit={canEdit}
           onClose={() => setSelectedId(null)}
-          onSaved={async () => {
+          onSaved={async (focusPersonId?: string) => {
             await load();
+            if (focusPersonId) setSelectedId(focusPersonId);
           }}
         />
       )}

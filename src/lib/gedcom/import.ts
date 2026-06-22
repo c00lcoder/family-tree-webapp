@@ -64,6 +64,7 @@ export async function importGedcom(
     gedcomXref: indi.xref,
     givenName: indi.givenName ?? null,
     surname: indi.surname ?? null,
+    suffix: indi.suffix ?? null,
     sex: indi.sex,
     notes: indi.notes ?? null,
   }));

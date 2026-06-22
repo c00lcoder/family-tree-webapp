@@ -11,6 +11,7 @@ export interface PersonRow {
   id: string;
   givenName?: string | null;
   surname?: string | null;
+  suffix?: string | null;
   sex?: "M" | "F" | "U" | null;
   avatarUrl?: string | null;
 }
@@ -50,11 +51,13 @@ export function toFamilyChart(
   const byId = new Map<string, FamilyChartDatum>();
 
   for (const p of persons) {
+    // Display the suffix (Jr/Sr/III) alongside the surname.
+    const lastName = [p.surname, p.suffix].filter(Boolean).join(" ");
     byId.set(p.id, {
       id: p.id,
       data: {
         "first name": p.givenName ?? "",
-        "last name": p.surname ?? "",
+        "last name": lastName,
         // family-chart only understands M/F; treat unknown as M for layout.
         gender: p.sex === "F" ? "F" : "M",
         ...(p.avatarUrl ? { avatar: p.avatarUrl } : {}),

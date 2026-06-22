@@ -13,6 +13,7 @@ export const updateTreeSchema = z.object({
 export const createPersonSchema = z.object({
   givenName: z.string().trim().max(200).optional(),
   surname: z.string().trim().max(200).optional(),
+  suffix: z.string().trim().max(20).optional(),
   sex: z.enum(["M", "F", "U"]).default("U"),
   notes: z.string().trim().max(5000).optional(),
 });
@@ -20,9 +21,28 @@ export const createPersonSchema = z.object({
 export const updatePersonSchema = z.object({
   givenName: z.string().trim().max(200).nullable().optional(),
   surname: z.string().trim().max(200).nullable().optional(),
+  suffix: z.string().trim().max(20).nullable().optional(),
   sex: z.enum(["M", "F", "U"]).optional(),
   notes: z.string().trim().max(5000).nullable().optional(),
   avatarMediaId: z.string().uuid().nullable().optional(),
+});
+
+// Relationship of the NEW person being added, relative to the existing person.
+export const RELATIONSHIPS = [
+  "father",
+  "mother",
+  "spouse",
+  "son",
+  "daughter",
+  "brother",
+  "sister",
+] as const;
+
+export const addRelativeSchema = z.object({
+  relationship: z.enum(RELATIONSHIPS),
+  givenName: z.string().trim().max(200).optional(),
+  surname: z.string().trim().max(200).optional(),
+  suffix: z.string().trim().max(20).optional(),
 });
 
 export const uploadUrlSchema = z.object({
@@ -31,6 +51,9 @@ export const uploadUrlSchema = z.object({
     .string()
     .regex(/^image\/(png|jpe?g|webp|gif|avif)$/, "Unsupported image type"),
   fileName: z.string().trim().max(255).optional(),
+  // Used to organize the object into a tidy folder structure in the bucket.
+  personId: z.string().uuid().optional(),
+  category: z.enum(["avatar", "photo"]).default("photo"),
 });
 
 export const createMediaSchema = z.object({

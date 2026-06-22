@@ -139,6 +139,8 @@ export const persons = pgTable(
     gedcomXref: text("gedcom_xref"),
     givenName: text("given_name"),
     surname: text("surname"),
+    // Name suffix such as Jr, Sr, III.
+    suffix: text("suffix"),
     sex: sexEnum("sex").notNull().default("U"),
     notes: text("notes"),
     avatarMediaId: uuid("avatar_media_id").references(() => media.id, {
