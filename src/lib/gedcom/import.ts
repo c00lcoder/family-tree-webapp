@@ -1,3 +1,4 @@
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   persons as personsTable,
@@ -8,10 +9,11 @@ import {
   citations as citationsTable,
 } from "@/lib/db/schema";
 import { parseGedcom } from "./parse";
-import type { GedcomEvent } from "./types";
+import type { GedcomEvent, GedcomIndividual } from "./types";
 
 export interface ImportResult {
   persons: number;
+  mergedPeople: number;
   families: number;
   children: number;
   events: number;
@@ -42,18 +44,51 @@ function eventRows(
   return events.map((e) => ({
     treeId,
     subject,
-    ...(subject === "person"
-      ? { personId: ownerId }
-      : { familyId: ownerId }),
+    ...(subject === "person" ? { personId: ownerId } : { familyId: ownerId }),
     type: e.type,
     dateRaw: e.date ?? null,
     place: e.place ?? null,
   }));
 }
 
+function yearOf(dateRaw?: string | null): number | null {
+  if (!dateRaw) return null;
+  const m = dateRaw.match(/\b(\d{4})\b/);
+  return m ? Number(m[1]) : null;
+}
+
+function birthYear(events: GedcomEvent[]): number | null {
+  return yearOf(events.find((e) => e.type === "BIRT")?.date);
+}
+
 /**
- * Parse a GEDCOM document and persist its individuals, families, child links
- * and events into the given tree. Inserts are batched for large files.
+ * A conservative identity key: only set when given name, surname AND a birth
+ * year are all present, so we never merge two different people who happen to
+ * share a name. Returns null when we can't be confident (then the person is
+ * always inserted).
+ */
+function personKey(
+  given: string | null | undefined,
+  surname: string | null | undefined,
+  year: number | null,
+): string | null {
+  const g = (given ?? "").trim().toLowerCase();
+  const s = (surname ?? "").trim().toLowerCase();
+  if (!g || !s || year == null) return null;
+  return `${g}|${s}|${year}`;
+}
+
+function familyKey(p1: string | null, p2: string | null): string | null {
+  if (!p1 && !p2) return null;
+  return [p1 ?? "", p2 ?? ""].sort().join("|");
+}
+
+/**
+ * Parse a GEDCOM document and persist it into the tree. Importing into a tree
+ * that already has data MERGES rather than blindly appends: people are matched
+ * by name + birth year, families by their partners. Matched records are reused
+ * (their existing events/citations are kept) so re-importing the same file, or
+ * combining overlapping files, does not create duplicates.
  */
 export async function importGedcom(
   treeId: string,
@@ -61,21 +96,57 @@ export async function importGedcom(
 ): Promise<ImportResult> {
   const { individuals, families, sources } = parseGedcom(input);
 
-  // 1. Insert persons, building an xref -> new uuid map.
+  // ----- Build the existing-person index (name + birth year -> id). ---------
+  const existingPersons = await db
+    .select({
+      id: personsTable.id,
+      givenName: personsTable.givenName,
+      surname: personsTable.surname,
+    })
+    .from(personsTable)
+    .where(eq(personsTable.treeId, treeId));
+  const existingBirths = await db
+    .select({ personId: eventsTable.personId, dateRaw: eventsTable.dateRaw })
+    .from(eventsTable)
+    .where(and(eq(eventsTable.treeId, treeId), eq(eventsTable.type, "BIRT")));
+  const yearByPerson = new Map<string, number | null>();
+  for (const b of existingBirths) {
+    if (b.personId && !yearByPerson.has(b.personId)) {
+      yearByPerson.set(b.personId, yearOf(b.dateRaw));
+    }
+  }
+  const personByKey = new Map<string, string>();
+  for (const p of existingPersons) {
+    const key = personKey(p.givenName, p.surname, yearByPerson.get(p.id) ?? null);
+    if (key && !personByKey.has(key)) personByKey.set(key, p.id);
+  }
+
+  // ----- Persons: reuse matches, insert the rest. ---------------------------
   const xrefToPersonId = new Map<string, string>();
-  const personRows = individuals.map((indi) => ({
-    treeId,
-    gedcomXref: indi.xref,
-    givenName: indi.givenName ?? null,
-    surname: indi.surname ?? null,
-    suffix: indi.suffix ?? null,
-    sex: indi.sex,
-    notes: indi.notes ?? null,
-  }));
+  const newIndividuals: GedcomIndividual[] = [];
+  let merged = 0;
+  for (const indi of individuals) {
+    const key = personKey(indi.givenName, indi.surname, birthYear(indi.events));
+    const existingId = key ? personByKey.get(key) : undefined;
+    if (existingId) {
+      xrefToPersonId.set(indi.xref, existingId);
+      merged += 1;
+    } else {
+      newIndividuals.push(indi);
+    }
+  }
 
   let insertedPersons = 0;
-  for (let i = 0; i < personRows.length; i += BATCH_SIZE) {
-    const chunk = personRows.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < newIndividuals.length; i += BATCH_SIZE) {
+    const chunk = newIndividuals.slice(i, i + BATCH_SIZE).map((indi) => ({
+      treeId,
+      gedcomXref: indi.xref,
+      givenName: indi.givenName ?? null,
+      surname: indi.surname ?? null,
+      suffix: indi.suffix ?? null,
+      sex: indi.sex,
+      notes: indi.notes ?? null,
+    }));
     const inserted = await db
       .insert(personsTable)
       .values(chunk)
@@ -85,22 +156,51 @@ export async function importGedcom(
     }
     insertedPersons += inserted.length;
   }
+  // Register newly-inserted keys so within-file duplicates also dedupe.
+  for (const indi of newIndividuals) {
+    const key = personKey(indi.givenName, indi.surname, birthYear(indi.events));
+    const id = xrefToPersonId.get(indi.xref);
+    if (key && id && !personByKey.has(key)) personByKey.set(key, id);
+  }
+  const newPersonXrefs = new Set(newIndividuals.map((i) => i.xref));
 
-  // 2. Insert families, building an xref -> new uuid map.
-  const familyRows = families.map((fam) => ({
-    treeId,
-    gedcomXref: fam.xref,
-    partner1Id: fam.husbandXref
-      ? (xrefToPersonId.get(fam.husbandXref) ?? null)
-      : null,
-    partner2Id: fam.wifeXref
-      ? (xrefToPersonId.get(fam.wifeXref) ?? null)
-      : null,
-  }));
+  // ----- Families: reuse matches by partners, insert the rest. --------------
+  const existingFamilies = await db
+    .select({
+      id: familiesTable.id,
+      partner1Id: familiesTable.partner1Id,
+      partner2Id: familiesTable.partner2Id,
+    })
+    .from(familiesTable)
+    .where(eq(familiesTable.treeId, treeId));
+  const familyByKey = new Map<string, string>();
+  for (const f of existingFamilies) {
+    const key = familyKey(f.partner1Id, f.partner2Id);
+    if (key && !familyByKey.has(key)) familyByKey.set(key, f.id);
+  }
 
   const xrefToFamilyId = new Map<string, string>();
-  for (let i = 0; i < familyRows.length; i += BATCH_SIZE) {
-    const chunk = familyRows.slice(i, i + BATCH_SIZE);
+  const newFamilyXrefs = new Set<string>();
+  const familiesToInsert: { xref: string; partner1Id: string | null; partner2Id: string | null }[] = [];
+  for (const fam of families) {
+    const p1 = fam.husbandXref ? (xrefToPersonId.get(fam.husbandXref) ?? null) : null;
+    const p2 = fam.wifeXref ? (xrefToPersonId.get(fam.wifeXref) ?? null) : null;
+    const key = familyKey(p1, p2);
+    const existingId = key ? familyByKey.get(key) : undefined;
+    if (existingId) {
+      xrefToFamilyId.set(fam.xref, existingId);
+    } else {
+      familiesToInsert.push({ xref: fam.xref, partner1Id: p1, partner2Id: p2 });
+      newFamilyXrefs.add(fam.xref);
+    }
+  }
+  for (let i = 0; i < familiesToInsert.length; i += BATCH_SIZE) {
+    const chunk = familiesToInsert.slice(i, i + BATCH_SIZE).map((f) => ({
+      treeId,
+      gedcomXref: f.xref,
+      partner1Id: f.partner1Id,
+      partner2Id: f.partner2Id,
+    }));
     const inserted = await db
       .insert(familiesTable)
       .values(chunk)
@@ -110,9 +210,10 @@ export async function importGedcom(
     }
   }
 
-  // 3. Child links.
+  // ----- Child links: only for newly-inserted families. ---------------------
   const childRows: { familyId: string; childId: string }[] = [];
   for (const fam of families) {
+    if (!newFamilyXrefs.has(fam.xref)) continue;
     const familyId = xrefToFamilyId.get(fam.xref);
     if (!familyId) continue;
     for (const childXref of fam.childXrefs) {
@@ -122,21 +223,23 @@ export async function importGedcom(
   }
   await batchInsert(familyChildrenTable, childRows);
 
-  // 4. Events (person + family).
+  // ----- Events: only for newly-inserted persons / families. ----------------
   const eventInsertRows: ReturnType<typeof eventRows> = [];
   for (const indi of individuals) {
+    if (!newPersonXrefs.has(indi.xref)) continue;
     const personId = xrefToPersonId.get(indi.xref);
     if (personId)
       eventInsertRows.push(...eventRows(treeId, "person", personId, indi.events));
   }
   for (const fam of families) {
+    if (!newFamilyXrefs.has(fam.xref)) continue;
     const familyId = xrefToFamilyId.get(fam.xref);
     if (familyId)
       eventInsertRows.push(...eventRows(treeId, "family", familyId, fam.events));
   }
   await batchInsert(eventsTable, eventInsertRows);
 
-  // 5. Sources, then citations linking a source to a person.
+  // ----- Sources + citations (for newly-inserted persons). ------------------
   const xrefToSourceId = new Map<string, string>();
   const sourceRows = sources.map((s) => ({
     treeId,
@@ -165,6 +268,7 @@ export async function importGedcom(
     page: string | null;
   }[] = [];
   for (const indi of individuals) {
+    if (!newPersonXrefs.has(indi.xref)) continue;
     const personId = xrefToPersonId.get(indi.xref);
     if (!personId) continue;
     for (const c of indi.citations) {
@@ -183,7 +287,8 @@ export async function importGedcom(
 
   return {
     persons: insertedPersons,
-    families: xrefToFamilyId.size,
+    mergedPeople: merged,
+    families: familiesToInsert.length,
     children: childRows.length,
     events: eventInsertRows.length,
     sources: xrefToSourceId.size,

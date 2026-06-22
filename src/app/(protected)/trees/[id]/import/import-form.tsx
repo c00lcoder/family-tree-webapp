@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 
 interface ImportResult {
   persons: number;
+  mergedPeople: number;
   families: number;
   children: number;
   events: number;
@@ -77,7 +78,12 @@ export function ImportForm({ treeId }: { treeId: string }) {
         >
           <p className="font-semibold">Import complete</p>
           <ul className="mt-1 text-muted-foreground">
-            <li>{result.persons} people</li>
+            <li>
+              {result.persons} people added
+              {result.mergedPeople > 0
+                ? ` (${result.mergedPeople} matched existing & merged)`
+                : ""}
+            </li>
             <li>{result.families} families</li>
             <li>{result.children} parent-child links</li>
             <li>{result.events} events</li>
