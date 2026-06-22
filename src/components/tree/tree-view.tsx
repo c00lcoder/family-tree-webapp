@@ -6,6 +6,7 @@ import { Download, Upload, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FamilyChart } from "@/components/tree/family-chart";
 import { PersonEditor } from "@/components/tree/person-editor";
+import { AddPersonDialog } from "@/components/tree/add-person-dialog";
 import type { FamilyChartDatum } from "@/lib/gedcom/to-family-chart";
 
 export interface PersonRecord {
@@ -27,7 +28,10 @@ export function TreeView({ treeId, canEdit }: TreeViewProps) {
   const [graph, setGraph] = useState<FamilyChartDatum[]>([]);
   const [persons, setPersons] = useState<Record<string, PersonRecord>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  const peopleList = Object.values(persons);
 
   const load = useCallback(async () => {
     const [graphRes, personsRes] = await Promise.all([
@@ -70,7 +74,12 @@ export function TreeView({ treeId, canEdit }: TreeViewProps) {
       <div className="mb-4 flex flex-wrap gap-3">
         {canEdit && (
           <>
-            <Button onClick={addPerson} variant="secondary">
+            <Button
+              onClick={() =>
+                peopleList.length ? setAddOpen(true) : addPerson()
+              }
+              variant="secondary"
+            >
               <UserPlus className="h-5 w-5" aria-hidden />
               Add person
             </Button>
@@ -108,6 +117,18 @@ export function TreeView({ treeId, canEdit }: TreeViewProps) {
         </div>
       ) : (
         <FamilyChart data={graph} onSelect={setSelectedId} />
+      )}
+
+      {addOpen && (
+        <AddPersonDialog
+          people={peopleList}
+          onClose={() => setAddOpen(false)}
+          onAdded={async (id) => {
+            setAddOpen(false);
+            await load();
+            setSelectedId(id);
+          }}
+        />
       )}
 
       {selectedId && persons[selectedId] && (

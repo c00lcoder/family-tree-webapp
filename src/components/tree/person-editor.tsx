@@ -107,6 +107,21 @@ export function PersonEditor({
     }
   }
 
+  async function handleRemovePhoto() {
+    if (!avatarMediaId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      // Deletes the object + row; the FK nulls this person's avatar reference.
+      await fetch(`/api/media/${avatarMediaId}`, { method: "DELETE" });
+      setAvatarMediaId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not remove photo");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleAddRelative() {
     setBusy(true);
     setError(null);
@@ -215,16 +230,27 @@ export function PersonEditor({
           {canEdit && (
             <div>
               <Label>Photo</Label>
-              <label className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-lg border-2 border-border px-4 font-semibold hover:bg-muted">
-                <ImagePlus className="h-5 w-5" aria-hidden />
-                {avatarMediaId ? "Change photo" : "Add photo"}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="sr-only"
-                  onChange={handleAvatar}
-                />
-              </label>
+              <div className="flex flex-wrap gap-2">
+                <label className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-lg border-2 border-border px-4 font-semibold hover:bg-muted">
+                  <ImagePlus className="h-5 w-5" aria-hidden />
+                  {avatarMediaId ? "Change photo" : "Add photo"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={handleAvatar}
+                  />
+                </label>
+                {avatarMediaId && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={handleRemovePhoto}
+                  >
+                    Remove photo
+                  </Button>
+                )}
+              </div>
             </div>
           )}
         </fieldset>

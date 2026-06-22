@@ -71,6 +71,12 @@ body {
   outline-offset: 2px;
 }
 
+/* family-chart hard-codes white connector lines, which vanish on the light
+   sepia background. Use a theme color that reads in both light and dark. */
+.f3 .link {
+  stroke: var(--muted-foreground) !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
