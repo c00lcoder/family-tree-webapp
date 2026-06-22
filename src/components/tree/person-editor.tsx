@@ -59,6 +59,9 @@ export function PersonEditor({
   const [sex, setSex] = useState<PersonRecord["sex"]>(person.sex);
   const [notes, setNotes] = useState(person.notes ?? "");
   const [avatarMediaId, setAvatarMediaId] = useState(person.avatarMediaId);
+  const [avatarUrl, setAvatarUrl] = useState(person.avatarUrl);
+  const [focusX, setFocusX] = useState(person.avatarFocusX ?? 50);
+  const [focusY, setFocusY] = useState(person.avatarFocusY ?? 50);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sources, setSources] = useState<PersonSource[]>([]);
@@ -96,6 +99,13 @@ export function PersonEditor({
       active = false;
     };
   }, [person.id]);
+
+  function handleFocusClick(e: React.MouseEvent<HTMLButtonElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clamp = (n: number) => Math.round(Math.min(100, Math.max(0, n)));
+    setFocusX(clamp(((e.clientX - rect.left) / rect.width) * 100));
+    setFocusY(clamp(((e.clientY - rect.top) / rect.height) * 100));
+  }
 
   async function handleAddStory() {
     if (!storyBody.trim()) return;
@@ -147,6 +157,8 @@ export function PersonEditor({
           sex,
           notes: notes || null,
           avatarMediaId,
+          avatarFocusX: focusX,
+          avatarFocusY: focusY,
         }),
       });
       if (!res.ok) throw new Error("Could not save changes");
@@ -181,11 +193,14 @@ export function PersonEditor({
     setBusy(true);
     setError(null);
     try {
-      const { mediaId } = await uploadImage(treeId, file, {
+      const { mediaId, publicUrl } = await uploadImage(treeId, file, {
         personId: person.id,
         category: "avatar",
       });
       setAvatarMediaId(mediaId);
+      setAvatarUrl(publicUrl);
+      setFocusX(50);
+      setFocusY(50);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -201,6 +216,7 @@ export function PersonEditor({
       // Deletes the object + row; the FK nulls this person's avatar reference.
       await fetch(`/api/media/${avatarMediaId}`, { method: "DELETE" });
       setAvatarMediaId(null);
+      setAvatarUrl(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not remove photo");
     } finally {
@@ -337,6 +353,27 @@ export function PersonEditor({
                   </Button>
                 )}
               </div>
+              {avatarUrl && (
+                <div className="mt-3">
+                  <p className="text-sm text-muted-foreground">
+                    Tap the photo to choose what shows on the tree card.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleFocusClick}
+                    className="mt-2 block h-40 w-40 overflow-hidden rounded-lg border-2 border-border"
+                    aria-label="Set photo focus point"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={avatarUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                      style={{ objectPosition: `${focusX}% ${focusY}%` }}
+                    />
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </fieldset>

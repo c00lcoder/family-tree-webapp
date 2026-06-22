@@ -135,6 +135,8 @@ export async function getTreeGraph(treeId: string): Promise<FamilyChartDatum[]> 
     avatarUrl: p.avatarMediaId
       ? (avatarById.get(p.avatarMediaId) ?? null)
       : null,
+    avatarFocusX: p.avatarFocusX,
+    avatarFocusY: p.avatarFocusY,
   }));
 
   return toFamilyChart(personInput, familyRows, childRows);

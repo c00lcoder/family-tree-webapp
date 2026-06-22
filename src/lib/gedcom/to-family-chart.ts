@@ -14,6 +14,8 @@ export interface PersonRow {
   suffix?: string | null;
   sex?: "M" | "F" | "U" | null;
   avatarUrl?: string | null;
+  avatarFocusX?: number | null;
+  avatarFocusY?: number | null;
 }
 
 export interface FamilyRow {
@@ -34,6 +36,8 @@ export interface FamilyChartDatum {
     "last name": string;
     gender: "M" | "F";
     avatar?: string;
+    focusX?: number;
+    focusY?: number;
   };
   rels: {
     father?: string;
@@ -60,7 +64,13 @@ export function toFamilyChart(
         "last name": lastName,
         // family-chart only understands M/F; treat unknown as M for layout.
         gender: p.sex === "F" ? "F" : "M",
-        ...(p.avatarUrl ? { avatar: p.avatarUrl } : {}),
+        ...(p.avatarUrl
+          ? {
+              avatar: p.avatarUrl,
+              focusX: p.avatarFocusX ?? 50,
+              focusY: p.avatarFocusY ?? 50,
+            }
+          : {}),
       },
       rels: { spouses: [], children: [] },
     });

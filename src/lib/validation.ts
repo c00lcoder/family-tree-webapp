@@ -25,6 +25,8 @@ export const updatePersonSchema = z.object({
   sex: z.enum(["M", "F", "U"]).optional(),
   notes: z.string().trim().max(5000).nullable().optional(),
   avatarMediaId: z.string().uuid().nullable().optional(),
+  avatarFocusX: z.number().int().min(0).max(100).optional(),
+  avatarFocusY: z.number().int().min(0).max(100).optional(),
 });
 
 // Relationship of the NEW person being added, relative to the existing person.

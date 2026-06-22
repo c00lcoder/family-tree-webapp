@@ -1,9 +1,10 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { persons } from "@/lib/db/schema";
+import { persons, media } from "@/lib/db/schema";
 import { canEdit, getTreeAccess } from "@/lib/db/queries";
 import { error, handle, ok } from "@/lib/api";
 import { requireDbUser } from "@/lib/auth";
+import { getStorage } from "@/lib/storage";
 import { createPersonSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -15,8 +16,34 @@ export const GET = handle(async (_req: Request, ctx: Ctx) => {
   const { id } = await ctx.params;
   const access = await getTreeAccess(id, user.id);
   if (!access) return error("Not found", 404);
-  const rows = await db.select().from(persons).where(eq(persons.treeId, id));
-  return ok(rows);
+
+  const rows = await db
+    .select({
+      person: persons,
+      storageKey: media.storageKey,
+    })
+    .from(persons)
+    .leftJoin(media, eq(persons.avatarMediaId, media.id))
+    .where(eq(persons.treeId, id));
+
+  // Presign avatar URLs so the editor can preview the photo (skip if storage
+  // isn't configured).
+  let storage: ReturnType<typeof getStorage> | null = null;
+  try {
+    storage = getStorage();
+  } catch {
+    storage = null;
+  }
+  const result = await Promise.all(
+    rows.map(async (r) => ({
+      ...r.person,
+      avatarUrl:
+        storage && r.storageKey
+          ? await storage.createDownloadUrl(r.storageKey, 6 * 3600)
+          : null,
+    })),
+  );
+  return ok(result);
 });
 
 export const POST = handle(async (req: Request, ctx: Ctx) => {

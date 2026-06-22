@@ -63,5 +63,5 @@ export async function uploadImage(
   });
   if (!recordRes.ok) throw new Error("Could not save media");
   const media = await recordRes.json();
-  return { mediaId: media.id, publicUrl: media.publicUrl ?? null };
+  return { mediaId: media.id, publicUrl: media.url ?? media.publicUrl ?? null };
 }

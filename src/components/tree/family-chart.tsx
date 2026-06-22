@@ -65,9 +65,30 @@ export function FamilyChart({
           chart.updateTree();
         });
 
+      // Apply each person's avatar focal point (object-position) to their card
+      // image after every render — family-chart only supports object-fit: cover.
+      const focals = new Map(
+        data
+          .filter((d) => d.data.avatar)
+          .map((d) => [
+            d.id,
+            `${d.data.focusX ?? 50}% ${d.data.focusY ?? 50}%`,
+          ]),
+      );
+      const applyFocals = () => {
+        cont.querySelectorAll<HTMLImageElement>("img").forEach((img) => {
+          const id = img.closest<HTMLElement>("[data-id]")?.dataset.id;
+          const pos = id ? focals.get(id) : undefined;
+          if (pos) img.style.objectPosition = pos;
+        });
+      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (chart as any).afterUpdate = applyFocals;
+
       // `tree_position: "fit"` works around upstream issue #88 (tree not filling
       // the container on first render).
       chart.updateTree({ initial: true, tree_position: "fit" });
+      applyFocals();
     } catch (err) {
       console.error("Failed to render family chart:", err);
       cont.innerHTML =

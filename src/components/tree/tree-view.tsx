@@ -17,6 +17,9 @@ export interface PersonRecord {
   sex: "M" | "F" | "U";
   notes: string | null;
   avatarMediaId: string | null;
+  avatarUrl: string | null;
+  avatarFocusX: number;
+  avatarFocusY: number;
 }
 
 interface TreeViewProps {

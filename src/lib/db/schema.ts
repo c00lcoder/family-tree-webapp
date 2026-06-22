@@ -170,6 +170,9 @@ export const persons = pgTable(
     avatarMediaId: uuid("avatar_media_id").references(() => media.id, {
       onDelete: "set null",
     }),
+    // Focal point (0-100%) for how the avatar is framed on the tree card.
+    avatarFocusX: integer("avatar_focus_x").notNull().default(50),
+    avatarFocusY: integer("avatar_focus_y").notNull().default(50),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
