@@ -31,4 +31,9 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withPWA(nextConfig);
+// next-pwa injects a webpack config, which conflicts with Turbopack (the Next 16
+// dev default). PWA only matters for production builds, so skip the wrapper in
+// dev and let `next dev` use Turbopack. The production build runs with `--webpack`.
+export default process.env.NODE_ENV === "development"
+  ? nextConfig
+  : withPWA(nextConfig);
