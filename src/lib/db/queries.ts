@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, or } from "drizzle-orm";
 import { db } from "./index";
 import {
   trees,
@@ -301,6 +301,46 @@ export async function getTreeExportData(treeId: string) {
 
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
+}
+
+export interface PlaceGroup {
+  place: string;
+  count: number;
+  events: { type: string; dateRaw: string | null; personName: string | null }[];
+}
+
+/** Group a tree's dated/placed events by place, with the people involved. */
+export async function getTreePlaces(treeId: string): Promise<PlaceGroup[]> {
+  const rows = await db
+    .select({
+      place: events.place,
+      type: events.type,
+      dateRaw: events.dateRaw,
+      givenName: persons.givenName,
+      surname: persons.surname,
+    })
+    .from(events)
+    .leftJoin(persons, eq(events.personId, persons.id))
+    .where(and(eq(events.treeId, treeId), isNotNull(events.place)))
+    .orderBy(asc(events.place));
+
+  const byPlace = new Map<string, PlaceGroup>();
+  for (const r of rows) {
+    const place = r.place as string;
+    let group = byPlace.get(place);
+    if (!group) {
+      group = { place, count: 0, events: [] };
+      byPlace.set(place, group);
+    }
+    group.count += 1;
+    group.events.push({
+      type: r.type,
+      dateRaw: r.dateRaw,
+      personName:
+        [r.givenName, r.surname].filter(Boolean).join(" ").trim() || null,
+    });
+  }
+  return Array.from(byPlace.values()).sort((a, b) => b.count - a.count);
 }
 
 /** Source citations attached to a person (and their events). */
