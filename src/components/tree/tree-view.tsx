@@ -30,6 +30,11 @@ export function TreeView({ treeId, canEdit }: TreeViewProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [orientation, setOrientation] = useState<"vertical" | "horizontal">(
+    "vertical",
+  );
+  const [showSiblings, setShowSiblings] = useState(false);
+  const [fitNonce, setFitNonce] = useState(0);
 
   const peopleList = Object.values(persons);
 
@@ -128,7 +133,43 @@ export function TreeView({ treeId, canEdit }: TreeViewProps) {
           )}
         </div>
       ) : (
-        <FamilyChart data={graph} onSelect={setSelectedId} />
+        <div>
+          <div className="mb-3 flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() =>
+                setOrientation((o) =>
+                  o === "vertical" ? "horizontal" : "vertical",
+                )
+              }
+            >
+              {orientation === "vertical" ? "Horizontal" : "Vertical"} layout
+            </Button>
+            <Button
+              size="sm"
+              variant={showSiblings ? "primary" : "secondary"}
+              aria-pressed={showSiblings}
+              onClick={() => setShowSiblings((s) => !s)}
+            >
+              {showSiblings ? "Hide" : "Show"} siblings
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setFitNonce((n) => n + 1)}
+            >
+              Recenter
+            </Button>
+          </div>
+          <FamilyChart
+            data={graph}
+            onSelect={setSelectedId}
+            orientation={orientation}
+            showSiblings={showSiblings}
+            fitNonce={fitNonce}
+          />
+        </div>
       )}
 
       {addOpen && (

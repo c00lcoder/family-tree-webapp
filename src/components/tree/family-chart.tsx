@@ -8,6 +8,10 @@ import type { FamilyChartDatum } from "@/lib/gedcom/to-family-chart";
 interface FamilyChartProps {
   data: FamilyChartDatum[];
   onSelect?: (id: string) => void;
+  orientation?: "vertical" | "horizontal";
+  showSiblings?: boolean;
+  /** Bump to force a rebuild + re-fit (e.g. a "recenter" button). */
+  fitNonce?: number;
 }
 
 /**
@@ -15,7 +19,13 @@ interface FamilyChartProps {
  * tree into a container ref and rebuilds when the data changes. Cards are large
  * and tappable; tapping a card calls `onSelect` so the parent can open editing.
  */
-export function FamilyChart({ data, onSelect }: FamilyChartProps) {
+export function FamilyChart({
+  data,
+  onSelect,
+  orientation = "vertical",
+  showSiblings = false,
+  fitNonce = 0,
+}: FamilyChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -37,7 +47,10 @@ export function FamilyChart({ data, onSelect }: FamilyChartProps) {
         .setTransitionTime(600)
         .setCardXSpacing(260)
         .setCardYSpacing(160)
-        .setOrientationVertical();
+        .setShowSiblingsOfMain(showSiblings);
+
+      if (orientation === "horizontal") chart.setOrientationHorizontal();
+      else chart.setOrientationVertical();
 
       chart
         .setCardHtml()
@@ -64,7 +77,7 @@ export function FamilyChart({ data, onSelect }: FamilyChartProps) {
     return () => {
       cont.innerHTML = "";
     };
-  }, [data, onSelect]);
+  }, [data, onSelect, orientation, showSiblings, fitNonce]);
 
   return (
     <div
