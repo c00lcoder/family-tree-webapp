@@ -3,6 +3,7 @@ import { db } from "./index";
 import {
   trees,
   treeMembers,
+  treeInvites,
   persons,
   families,
   familyChildren,
@@ -294,6 +295,45 @@ export async function getTreeExportData(treeId: string) {
     db.select().from(events).where(eq(events.treeId, treeId)),
   ]);
   return { personRows, familyRows, childRows, eventRows };
+}
+
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+/**
+ * Turn any pending invites for this email into active memberships. Called when a
+ * user signs up / updates their email (via the Clerk webhook) so invited family
+ * members get access automatically.
+ */
+export async function claimInvitesForEmail(
+  email: string,
+  userId: string,
+): Promise<number> {
+  const normalized = normalizeEmail(email);
+  if (!normalized) return 0;
+  const invites = await db
+    .select()
+    .from(treeInvites)
+    .where(eq(treeInvites.email, normalized));
+  for (const inv of invites) {
+    await db
+      .insert(treeMembers)
+      .values({
+        treeId: inv.treeId,
+        userId,
+        role: inv.role,
+        status: "active",
+      })
+      .onConflictDoUpdate({
+        target: [treeMembers.treeId, treeMembers.userId],
+        set: { role: inv.role, status: "active" },
+      });
+  }
+  if (invites.length) {
+    await db.delete(treeInvites).where(eq(treeInvites.email, normalized));
+  }
+  return invites.length;
 }
 
 /** Count current admins (owner counts as one). */

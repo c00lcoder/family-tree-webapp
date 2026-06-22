@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
+import { claimInvitesForEmail } from "@/lib/db/queries";
 import { error, ok } from "@/lib/api";
 
 export const runtime = "nodejs";
@@ -78,10 +79,15 @@ export async function POST(req: Request) {
       memorynestUserId: memorynestId(data),
       updatedAt: new Date(),
     };
-    await db
+    const [row] = await db
       .insert(users)
       .values(values)
-      .onConflictDoUpdate({ target: users.clerkId, set: values });
+      .onConflictDoUpdate({ target: users.clerkId, set: values })
+      .returning({ id: users.id });
+    // Grant access to any trees this email was invited to before signing up.
+    if (row && values.email) {
+      await claimInvitesForEmail(values.email, row.id);
+    }
   } else if (event.type === "user.deleted") {
     await db.delete(users).where(eq(users.clerkId, event.data.id));
   }

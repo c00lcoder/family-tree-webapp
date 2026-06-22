@@ -2,6 +2,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
+import { claimInvitesForEmail } from "@/lib/db/queries";
 
 /**
  * Resolve the Clerk-authenticated request to our local DB user, creating it on
@@ -40,6 +41,12 @@ export async function getCurrentDbUser() {
       set: { email, name, imageUrl: clerkUser.imageUrl, updatedAt: new Date() },
     })
     .returning();
+
+  // First-time sync (e.g. local dev without a webhook): claim any pending
+  // invites for this email so invited family members get immediate access.
+  if (created && email) {
+    await claimInvitesForEmail(email, created.id);
+  }
 
   return created;
 }

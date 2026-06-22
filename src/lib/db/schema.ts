@@ -95,6 +95,30 @@ export const treeMembers = pgTable(
   ],
 );
 
+// Pending invitations by email — claimed into a membership when that email signs
+// up (via the Clerk webhook). Lets you invite relatives before they have accounts.
+export const treeInvites = pgTable(
+  "tree_invites",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    treeId: uuid("tree_id")
+      .notNull()
+      .references(() => trees.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: memberRoleEnum("role").notNull().default("member"),
+    invitedBy: uuid("invited_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("tree_invites_unique_idx").on(t.treeId, t.email),
+    index("tree_invites_email_idx").on(t.email),
+  ],
+);
+
 // ---------------------------------------------------------------------------
 // Media (Cloudflare R2 / S3-compatible objects)
 // ---------------------------------------------------------------------------

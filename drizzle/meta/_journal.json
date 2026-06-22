@@ -15,6 +15,13 @@
       "when": 1782096730791,
       "tag": "0001_salty_wendell_rand",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782123626158,
+      "tag": "0002_grey_lizard",
+      "breakpoints": true
     }
   ]
 }
