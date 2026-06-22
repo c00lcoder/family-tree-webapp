@@ -3,17 +3,8 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, BookText } from "lucide-react";
 import { getCurrentDbUser } from "@/lib/auth";
 import { getTreeAccess, getTreeSources } from "@/lib/db/queries";
+import { eventLabel } from "@/lib/gedcom/event-labels";
 import { Card, CardContent } from "@/components/ui/card";
-
-const EVENT_LABELS: Record<string, string> = {
-  BIRT: "Birth",
-  DEAT: "Death",
-  MARR: "Marriage",
-  DIV: "Divorce",
-  BURI: "Burial",
-  CHR: "Christening",
-  BAPM: "Baptism",
-};
 
 export default async function SourcesPage({
   params,
@@ -78,9 +69,7 @@ export default async function SourcesPage({
                     <ul className="mt-3 space-y-1 border-t border-border pt-3 text-sm text-muted-foreground">
                       {s.references.slice(0, 12).map((r, i) => (
                         <li key={i}>
-                          {r.eventType
-                            ? (EVENT_LABELS[r.eventType] ?? r.eventType)
-                            : "Record"}
+                          {eventLabel(r.eventType)}
                           {r.personName ? ` — ${r.personName}` : ""}
                           {r.page ? ` (${r.page})` : ""}
                         </li>

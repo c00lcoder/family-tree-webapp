@@ -3,17 +3,8 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, MapPin } from "lucide-react";
 import { getCurrentDbUser } from "@/lib/auth";
 import { getTreeAccess, getTreePlaces } from "@/lib/db/queries";
+import { eventLabel } from "@/lib/gedcom/event-labels";
 import { Card, CardContent } from "@/components/ui/card";
-
-const EVENT_LABELS: Record<string, string> = {
-  BIRT: "Birth",
-  DEAT: "Death",
-  MARR: "Marriage",
-  DIV: "Divorce",
-  BURI: "Burial",
-  CHR: "Christening",
-  BAPM: "Baptism",
-};
 
 export default async function PlacesPage({
   params,
@@ -67,7 +58,7 @@ export default async function PlacesPage({
                   <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
                     {p.events.slice(0, 12).map((e, i) => (
                       <li key={i}>
-                        {EVENT_LABELS[e.type] ?? e.type}
+                        {eventLabel(e.type)}
                         {e.personName ? ` — ${e.personName}` : ""}
                         {e.dateRaw ? ` (${e.dateRaw})` : ""}
                       </li>

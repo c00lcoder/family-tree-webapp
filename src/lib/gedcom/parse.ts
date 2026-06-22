@@ -148,42 +148,35 @@ function parseSex(node: GedcomNode): Sex {
   return value === "M" || value === "F" ? value : "U";
 }
 
-const EVENT_TAGS = new Set([
-  "BIRT",
-  "DEAT",
-  "MARR",
-  "DIV",
-  "BURI",
-  "CHR",
-  "BAPM",
-  "ENGA",
-]);
-
-function citationsFrom(
-  node: GedcomNode,
-  eventType?: string,
-): GedcomCitation[] {
-  const out: GedcomCitation[] = [];
-  for (const child of node.children) {
-    if (child.tag !== "SOUR") continue;
-    const ref = child.value?.trim();
-    if (!ref) continue; // inline (non-pointer) sources are skipped for now
-    const page = findChild(child, "PAGE")?.value?.trim();
-    out.push({
-      sourceXref: ref,
-      ...(page ? { page } : {}),
-      ...(eventType ? { eventType } : {}),
-    });
-  }
-  return out;
+function citationNode(node: GedcomNode, eventType?: string): GedcomCitation | null {
+  const ref = node.value?.trim();
+  if (!ref || !ref.startsWith("@")) return null; // only pointer citations
+  const page = findChild(node, "PAGE")?.value?.trim();
+  return {
+    sourceXref: ref,
+    ...(page ? { page } : {}),
+    ...(eventType ? { eventType } : {}),
+  };
 }
 
-/** Person-level citations plus citations attached to each of the person's events. */
+/**
+ * Every citation attached to a person: person-level (`1 SOUR`) plus citations
+ * nested under any sub-record (`1 NAME`/`1 BIRT`/`1 RESI`/… then `2 SOUR`),
+ * which is how Ancestry/FamilySearch exports attach them. The sub-record tag is
+ * captured as the citation's context.
+ */
 function extractCitations(node: GedcomNode): GedcomCitation[] {
-  const out = citationsFrom(node);
+  const out: GedcomCitation[] = [];
   for (const child of node.children) {
-    if (EVENT_TAGS.has(child.tag)) {
-      out.push(...citationsFrom(child, child.tag));
+    if (child.tag === "SOUR") {
+      const c = citationNode(child);
+      if (c) out.push(c);
+      continue;
+    }
+    for (const grandchild of child.children) {
+      if (grandchild.tag !== "SOUR") continue;
+      const c = citationNode(grandchild, child.tag);
+      if (c) out.push(c);
     }
   }
   return out;

@@ -5,6 +5,7 @@ import { BookText, ImagePlus, UserPlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { uploadImage } from "@/lib/media";
+import { eventLabel } from "@/lib/gedcom/event-labels";
 import type { PersonRecord } from "@/components/tree/tree-view";
 
 interface PersonSource {
@@ -34,16 +35,6 @@ const RELATIONSHIP_OPTIONS = [
   { value: "brother", label: "Brother" },
   { value: "sister", label: "Sister" },
 ] as const;
-
-const EVENT_LABELS: Record<string, string> = {
-  BIRT: "Birth",
-  DEAT: "Death",
-  MARR: "Marriage",
-  DIV: "Divorce",
-  BURI: "Burial",
-  CHR: "Christening",
-  BAPM: "Baptism",
-};
 
 export function PersonEditor({
   treeId,
@@ -315,12 +306,7 @@ export function PersonEditor({
                   ) : null}
                   {s.eventType || s.page ? (
                     <p className="text-muted-foreground">
-                      {[
-                        s.eventType
-                          ? (EVENT_LABELS[s.eventType] ?? s.eventType)
-                          : null,
-                        s.page,
-                      ]
+                      {[s.eventType ? eventLabel(s.eventType) : null, s.page]
                         .filter(Boolean)
                         .join(" · ")}
                     </p>

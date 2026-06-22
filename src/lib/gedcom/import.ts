@@ -239,18 +239,25 @@ export async function importGedcom(
   }
   await batchInsert(eventsTable, eventInsertRows);
 
-  // ----- Sources + citations (for newly-inserted persons). ------------------
+  // ----- Sources: dedupe by GEDCOM xref so re-import doesn't duplicate. ------
   const xrefToSourceId = new Map<string, string>();
-  const sourceRows = sources.map((s) => ({
-    treeId,
-    gedcomXref: s.xref,
-    title: s.title ?? null,
-    author: s.author ?? null,
-    publication: s.publication ?? null,
-    repositoryName: s.repositoryName ?? null,
-  }));
-  for (let i = 0; i < sourceRows.length; i += BATCH_SIZE) {
-    const chunk = sourceRows.slice(i, i + BATCH_SIZE);
+  const existingSources = await db
+    .select({ id: sourcesTable.id, xref: sourcesTable.gedcomXref })
+    .from(sourcesTable)
+    .where(eq(sourcesTable.treeId, treeId));
+  for (const s of existingSources) {
+    if (s.xref) xrefToSourceId.set(s.xref, s.id);
+  }
+  const newSources = sources.filter((s) => !xrefToSourceId.has(s.xref));
+  for (let i = 0; i < newSources.length; i += BATCH_SIZE) {
+    const chunk = newSources.slice(i, i + BATCH_SIZE).map((s) => ({
+      treeId,
+      gedcomXref: s.xref,
+      title: s.title ?? null,
+      author: s.author ?? null,
+      publication: s.publication ?? null,
+      repositoryName: s.repositoryName ?? null,
+    }));
     const inserted = await db
       .insert(sourcesTable)
       .values(chunk)
@@ -260,6 +267,14 @@ export async function importGedcom(
     }
   }
 
+  // ----- Citations: attach to any person who has none yet (covers new people
+  // AND people imported before source support), so it's idempotent. -----------
+  const citedRows = await db
+    .selectDistinct({ personId: citationsTable.personId })
+    .from(citationsTable)
+    .where(eq(citationsTable.treeId, treeId));
+  const alreadyCited = new Set(citedRows.map((r) => r.personId));
+
   const citationRows: {
     treeId: string;
     sourceId: string;
@@ -268,9 +283,8 @@ export async function importGedcom(
     page: string | null;
   }[] = [];
   for (const indi of individuals) {
-    if (!newPersonXrefs.has(indi.xref)) continue;
     const personId = xrefToPersonId.get(indi.xref);
-    if (!personId) continue;
+    if (!personId || alreadyCited.has(personId)) continue;
     for (const c of indi.citations) {
       const sourceId = xrefToSourceId.get(c.sourceXref);
       if (!sourceId) continue;
