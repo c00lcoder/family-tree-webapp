@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { FamilyChart } from "@/components/tree/family-chart";
 import { PersonEditor } from "@/components/tree/person-editor";
 import { AddPersonDialog } from "@/components/tree/add-person-dialog";
+import { PeopleList } from "@/components/tree/people-list";
 import type { FamilyChartDatum } from "@/lib/gedcom/to-family-chart";
 
 export interface PersonRecord {
@@ -39,6 +40,7 @@ export function TreeView({ treeId, canEdit }: TreeViewProps) {
   );
   const [showSiblings, setShowSiblings] = useState(false);
   const [showGenerations, setShowGenerations] = useState(true);
+  const [focusId, setFocusId] = useState<string | null>(null);
   const [fitNonce, setFitNonce] = useState(0);
 
   const peopleList = Object.values(persons);
@@ -82,6 +84,9 @@ export function TreeView({ treeId, canEdit }: TreeViewProps) {
   return (
     <div>
       <div className="mb-4 flex flex-wrap gap-3">
+        {peopleList.length > 0 && (
+          <PeopleList people={peopleList} onPick={(id) => setFocusId(id)} />
+        )}
         {canEdit && (
           <>
             <Button
@@ -181,6 +186,7 @@ export function TreeView({ treeId, canEdit }: TreeViewProps) {
             orientation={orientation}
             showSiblings={showSiblings}
             showGenerations={showGenerations}
+            focusId={focusId}
             fitNonce={fitNonce}
           />
         </div>

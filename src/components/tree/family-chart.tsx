@@ -12,6 +12,8 @@ interface FamilyChartProps {
   showSiblings?: boolean;
   /** Tint each card by its generation row. */
   showGenerations?: boolean;
+  /** Re-center the chart on this person (without a full rebuild). */
+  focusId?: string | null;
   /** Bump to force a rebuild + re-fit (e.g. a "recenter" button). */
   fitNonce?: number;
 }
@@ -37,9 +39,24 @@ export function FamilyChart({
   orientation = "vertical",
   showSiblings = false,
   showGenerations = true,
+  focusId = null,
   fitNonce = 0,
 }: FamilyChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const chartRef = useRef<any>(null);
+
+  // Re-center on a person when picked from the People list (no rebuild).
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart || !focusId) return;
+    try {
+      chart.updateMainId(focusId);
+      chart.updateTree({ tree_position: "main_to_middle" });
+    } catch {
+      // ignore
+    }
+  }, [focusId]);
 
   useEffect(() => {
     const cont = containerRef.current;
@@ -136,6 +153,8 @@ export function FamilyChart({
       };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (chart as any).afterUpdate = applyOverlays;
+      chartRef.current = chart;
+      if (focusId) chart.updateMainId(focusId);
 
       // `tree_position: "fit"` works around upstream issue #88 (tree not filling
       // the container on first render).
@@ -148,8 +167,11 @@ export function FamilyChart({
     }
 
     return () => {
+      chartRef.current = null;
       cont.innerHTML = "";
     };
+    // focusId is handled by its own effect (no rebuild), so it's excluded here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, onSelect, orientation, showSiblings, showGenerations, fitNonce]);
 
   return (
