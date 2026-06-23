@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { BookText, Download, MapPin, Upload, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,10 @@ import { FamilyChart } from "@/components/tree/family-chart";
 import { PersonEditor } from "@/components/tree/person-editor";
 import { AddPersonDialog } from "@/components/tree/add-person-dialog";
 import { PeopleList } from "@/components/tree/people-list";
-import type { FamilyChartDatum } from "@/lib/gedcom/to-family-chart";
+import {
+  bestRootId,
+  type FamilyChartDatum,
+} from "@/lib/gedcom/to-family-chart";
 
 export interface PersonRecord {
   id: string;
@@ -42,8 +45,18 @@ export function TreeView({ treeId, canEdit }: TreeViewProps) {
   const [showGenerations, setShowGenerations] = useState(true);
   const [focusId, setFocusId] = useState<string | null>(null);
   const [fitNonce, setFitNonce] = useState(0);
+  const initializedFocus = useRef(false);
 
   const peopleList = Object.values(persons);
+
+  // On first load, center the chart on the ancestor with the widest descendant
+  // tree, so the initial view shows as much of the family as possible.
+  useEffect(() => {
+    if (!initializedFocus.current && graph.length) {
+      initializedFocus.current = true;
+      setFocusId(bestRootId(graph));
+    }
+  }, [graph]);
 
   const load = useCallback(async () => {
     const [graphRes, personsRes] = await Promise.all([
@@ -171,6 +184,13 @@ export function TreeView({ treeId, canEdit }: TreeViewProps) {
               onClick={() => setShowGenerations((s) => !s)}
             >
               Generations
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setFocusId(bestRootId(graph))}
+            >
+              Whole tree
             </Button>
             <Button
               size="sm"

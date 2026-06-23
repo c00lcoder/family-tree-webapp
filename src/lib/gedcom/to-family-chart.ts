@@ -48,6 +48,47 @@ export interface FamilyChartDatum {
   };
 }
 
+/**
+ * Pick the person whose descendant tree covers the most of the family — i.e. the
+ * earliest ancestor of the largest branch. Centering family-chart here shows the
+ * widest view instead of a thin ancestor line from someone near the bottom.
+ */
+export function bestRootId(data: FamilyChartDatum[]): string | null {
+  if (data.length === 0) return null;
+  const byId = new Map(data.map((d) => [d.id, d]));
+
+  const descendantReach = (startId: string): number => {
+    const seen = new Set<string>([startId]);
+    const stack = [startId];
+    while (stack.length) {
+      const d = byId.get(stack.pop()!);
+      if (!d) continue;
+      for (const c of d.rels.children) {
+        if (c && !seen.has(c)) {
+          seen.add(c);
+          stack.push(c);
+        }
+      }
+    }
+    // Count married-in spouses of every descendant too.
+    for (const id of Array.from(seen)) {
+      byId.get(id)?.rels.spouses.forEach((s) => seen.add(s));
+    }
+    return seen.size;
+  };
+
+  let bestId = data[0].id;
+  let best = -1;
+  for (const d of data) {
+    const reach = descendantReach(d.id);
+    if (reach > best) {
+      best = reach;
+      bestId = d.id;
+    }
+  }
+  return bestId;
+}
+
 export function toFamilyChart(
   persons: PersonRow[],
   families: FamilyRow[],

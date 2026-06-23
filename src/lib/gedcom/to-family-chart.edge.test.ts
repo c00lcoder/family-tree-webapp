@@ -1,5 +1,34 @@
 import { describe, it, expect } from "vitest";
-import { toFamilyChart } from "./to-family-chart";
+import { toFamilyChart, bestRootId } from "./to-family-chart";
+
+describe("bestRootId", () => {
+  it("picks the ancestor with the largest descendant tree", () => {
+    // gp -> p -> (c1, c2); a lone unrelated person.
+    const data = toFamilyChart(
+      [
+        { id: "gp", sex: "M" },
+        { id: "p", sex: "M" },
+        { id: "c1", sex: "F" },
+        { id: "c2", sex: "M" },
+        { id: "lone", sex: "F" },
+      ],
+      [
+        { id: "f1", partner1Id: "gp", partner2Id: null },
+        { id: "f2", partner1Id: "p", partner2Id: null },
+      ],
+      [
+        { familyId: "f1", childId: "p" },
+        { familyId: "f2", childId: "c1" },
+        { familyId: "f2", childId: "c2" },
+      ],
+    );
+    expect(bestRootId(data)).toBe("gp");
+  });
+
+  it("returns null for empty data", () => {
+    expect(bestRootId([])).toBeNull();
+  });
+});
 
 describe("toFamilyChart edge cases", () => {
   it("handles multiple spouses (remarriage) with children in each union", () => {
