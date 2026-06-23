@@ -8,6 +8,7 @@ export interface ExportPerson {
   id: string;
   givenName?: string | null;
   surname?: string | null;
+  marriedSurnames?: string[] | null;
   suffix?: string | null;
   sex?: "M" | "F" | "U" | null;
   notes?: string | null;
@@ -112,6 +113,15 @@ export function exportGedcom(input: ExportInput): string {
     if (p.givenName?.trim()) lines.push(`2 GIVN ${p.givenName.trim()}`);
     if (p.surname?.trim()) lines.push(`2 SURN ${p.surname.trim()}`);
     if (p.suffix?.trim()) lines.push(`2 NSFX ${p.suffix.trim()}`);
+    // Married name(s) as additional NAME records.
+    const given = (p.givenName ?? "").trim();
+    for (const married of p.marriedSurnames ?? []) {
+      const m = married.trim();
+      if (!m) continue;
+      lines.push(`1 NAME ${`${given} /${m}/`.trim()}`);
+      lines.push(`2 TYPE married`);
+      lines.push(`2 SURN ${m}`);
+    }
     if (p.sex === "M" || p.sex === "F") lines.push(`1 SEX ${p.sex}`);
     for (const ev of personEvents.get(p.id) ?? []) eventBlock(lines, ev);
     if (p.notes?.trim()) pushMultiline(lines, "NOTE", p.notes.trim());

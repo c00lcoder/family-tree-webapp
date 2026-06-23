@@ -25,6 +25,7 @@ export interface GedcomIndividual {
   xref: string;
   givenName?: string;
   surname?: string;
+  marriedSurnames?: string[];
   suffix?: string;
   sex: Sex;
   notes?: string;

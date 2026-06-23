@@ -55,6 +55,9 @@ export function PersonEditor({
 }: PersonEditorProps) {
   const [givenName, setGivenName] = useState(person.givenName ?? "");
   const [surname, setSurname] = useState(person.surname ?? "");
+  const [marriedSurnames, setMarriedSurnames] = useState<string[]>(
+    person.marriedSurnames ?? [],
+  );
   const [suffix, setSuffix] = useState(person.suffix ?? "");
   const [sex, setSex] = useState<PersonRecord["sex"]>(person.sex);
   const [notes, setNotes] = useState(person.notes ?? "");
@@ -153,6 +156,9 @@ export function PersonEditor({
         body: JSON.stringify({
           givenName: givenName || null,
           surname: surname || null,
+          marriedSurnames: marriedSurnames
+            .map((s) => s.trim())
+            .filter(Boolean),
           suffix: suffix || null,
           sex,
           notes: notes || null,
@@ -290,7 +296,7 @@ export function PersonEditor({
           </div>
           <div className="flex gap-3">
             <div className="flex-1">
-              <Label htmlFor="surname">Last name</Label>
+              <Label htmlFor="surname">Last name (birth)</Label>
               <Input
                 id="surname"
                 value={surname}
@@ -307,6 +313,49 @@ export function PersonEditor({
                 onChange={(e) => setSuffix(e.target.value)}
               />
             </div>
+          </div>
+          <div>
+            <Label>Married name(s)</Label>
+            <div className="space-y-2">
+              {marriedSurnames.map((name, i) => (
+                <div key={i} className="flex gap-2">
+                  <Input
+                    value={name}
+                    placeholder="e.g. Doe"
+                    onChange={(e) =>
+                      setMarriedSurnames((arr) =>
+                        arr.map((v, idx) => (idx === i ? e.target.value : v)),
+                      )
+                    }
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Remove married name"
+                    onClick={() =>
+                      setMarriedSurnames((arr) =>
+                        arr.filter((_, idx) => idx !== i),
+                      )
+                    }
+                  >
+                    <X className="h-5 w-5" aria-hidden />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setMarriedSurnames((arr) => [...arr, ""])}
+              >
+                Add married name
+              </Button>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              The birth surname is kept; married names show as “Married (Birth)”
+              on the tree.
+            </p>
           </div>
           <div>
             <Label htmlFor="sex">Sex</Label>

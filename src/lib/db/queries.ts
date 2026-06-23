@@ -130,6 +130,7 @@ export async function getTreeGraph(treeId: string): Promise<FamilyChartDatum[]> 
     id: p.id,
     givenName: p.givenName,
     surname: p.surname,
+    marriedSurnames: p.marriedSurnames,
     suffix: p.suffix,
     sex: p.sex,
     avatarUrl: p.avatarMediaId

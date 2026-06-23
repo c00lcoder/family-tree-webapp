@@ -18,6 +18,27 @@ describe("exportGedcom edge cases", () => {
     expect(p.notes).toBe("Line 1\nLine 2");
   });
 
+  it("round-trips married names as typed NAME records", () => {
+    const ged = exportGedcom({
+      persons: [
+        {
+          id: "p",
+          givenName: "Jane",
+          surname: "Smith",
+          marriedSurnames: ["Doe", "Roe"],
+          sex: "F",
+        },
+      ],
+      families: [],
+      children: [],
+      events: [],
+    });
+    expect(ged).toContain("2 TYPE married");
+    const p = parseGedcom(ged).individuals[0];
+    expect(p.surname).toBe("Smith");
+    expect(p.marriedSurnames).toEqual(["Doe", "Roe"]);
+  });
+
   it("handles a person with no surname", () => {
     const ged = exportGedcom({
       persons: [{ id: "p", givenName: "Madonna", sex: "F" }],

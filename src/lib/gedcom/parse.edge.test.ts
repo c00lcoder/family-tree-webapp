@@ -99,4 +99,19 @@ describe("parseGedcom edge cases", () => {
     expect(p.givenName).toBe("Zoë");
     expect(p.surname).toBe("Ng");
   });
+
+  it("parses multiple married names from typed NAME records", () => {
+    const ged = [
+      "0 @I1@ INDI",
+      "1 NAME Jane /Smith/",
+      "1 NAME Jane /Doe/",
+      "2 TYPE married",
+      "1 NAME Jane /Roe/",
+      "2 TYPE married",
+      "0 TRLR",
+    ].join("\n");
+    const p = parseGedcom(ged).individuals[0];
+    expect(p.surname).toBe("Smith");
+    expect(p.marriedSurnames).toEqual(["Doe", "Roe"]);
+  });
 });

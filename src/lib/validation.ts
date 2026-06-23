@@ -13,6 +13,7 @@ export const updateTreeSchema = z.object({
 export const createPersonSchema = z.object({
   givenName: z.string().trim().max(200).optional(),
   surname: z.string().trim().max(200).optional(),
+  marriedSurname: z.string().trim().max(200).optional(),
   suffix: z.string().trim().max(20).optional(),
   sex: z.enum(["M", "F", "U"]).default("U"),
   notes: z.string().trim().max(5000).optional(),
@@ -21,6 +22,7 @@ export const createPersonSchema = z.object({
 export const updatePersonSchema = z.object({
   givenName: z.string().trim().max(200).nullable().optional(),
   surname: z.string().trim().max(200).nullable().optional(),
+  marriedSurname: z.string().trim().max(200).nullable().optional(),
   suffix: z.string().trim().max(20).nullable().optional(),
   sex: z.enum(["M", "F", "U"]).optional(),
   notes: z.string().trim().max(5000).nullable().optional(),

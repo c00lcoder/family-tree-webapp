@@ -13,6 +13,7 @@ export interface PersonRecord {
   id: string;
   givenName: string | null;
   surname: string | null;
+  marriedSurnames: string[] | null;
   suffix: string | null;
   sex: "M" | "F" | "U";
   notes: string | null;

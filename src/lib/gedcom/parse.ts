@@ -104,14 +104,13 @@ function extractEvents(node: GedcomNode): GedcomEvent[] {
   return events;
 }
 
-function parseName(node: GedcomNode): {
+interface ParsedName {
   givenName?: string;
   surname?: string;
   suffix?: string;
-} {
-  const nameNode = findChild(node, "NAME");
-  if (!nameNode) return {};
+}
 
+function parseSingleName(nameNode: GedcomNode): ParsedName {
   // Prefer structured GIVN/SURN/NSFX if present.
   const givn = findChild(nameNode, "GIVN")?.value?.trim();
   const surn = findChild(nameNode, "SURN")?.value?.trim();
@@ -141,6 +140,40 @@ function parseName(node: GedcomNode): {
   // No surname slashes at all — treat the whole value as the given name.
   const givenName = raw.trim();
   return givenName ? { givenName } : {};
+}
+
+function parseName(
+  node: GedcomNode,
+): ParsedName & { marriedSurnames?: string[] } {
+  const nameNodes = node.children.filter((c) => c.tag === "NAME");
+  if (!nameNodes.length) return {};
+
+  const result: ParsedName = {};
+  const married: string[] = [];
+  let primarySet = false;
+  for (const nameNode of nameNodes) {
+    const type = findChild(nameNode, "TYPE")?.value?.trim().toLowerCase();
+    const parsed = parseSingleName(nameNode);
+    if (type === "married") {
+      if (parsed.surname) married.push(parsed.surname);
+    } else if (!primarySet) {
+      // First non-married NAME is the primary (birth) name.
+      Object.assign(result, parsed);
+      primarySet = true;
+    }
+    // Some exporters use a _MARNM tag for the married name instead.
+    const marnm = findChild(nameNode, "_MARNM")?.value?.trim();
+    if (marnm) {
+      const m = marnm.match(/\/(.*?)\//);
+      married.push((m ? m[1] : marnm).trim());
+    }
+  }
+  // De-duplicate while preserving order.
+  const marriedSurnames = [...new Set(married.filter(Boolean))];
+  return {
+    ...result,
+    ...(marriedSurnames.length ? { marriedSurnames } : {}),
+  };
 }
 
 function parseSex(node: GedcomNode): Sex {
@@ -228,12 +261,13 @@ export function parseGedcom(input: string | Uint8Array): NormalizedGedcom {
 
   for (const node of nodes) {
     if (node.tag === "INDI" && node.xref) {
-      const { givenName, surname, suffix } = parseName(node);
+      const { givenName, surname, suffix, marriedSurnames } = parseName(node);
       const notes = findChild(node, "NOTE")?.value?.trim();
       individuals.push({
         xref: node.xref,
         ...(givenName ? { givenName } : {}),
         ...(surname ? { surname } : {}),
+        ...(marriedSurnames ? { marriedSurnames } : {}),
         ...(suffix ? { suffix } : {}),
         sex: parseSex(node),
         ...(notes ? { notes } : {}),

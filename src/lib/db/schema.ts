@@ -162,7 +162,11 @@ export const persons = pgTable(
     // Original GEDCOM xref (e.g. "@I1@") to wire up relationships on import.
     gedcomXref: text("gedcom_xref"),
     givenName: text("given_name"),
+    // Birth / maiden surname.
     surname: text("surname"),
+    // Married surname(s), kept alongside the birth surname (people can have more
+    // than one across remarriages).
+    marriedSurnames: text("married_surnames").array(),
     // Name suffix such as Jr, Sr, III.
     suffix: text("suffix"),
     sex: sexEnum("sex").notNull().default("U"),

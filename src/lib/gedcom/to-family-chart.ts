@@ -11,6 +11,7 @@ export interface PersonRow {
   id: string;
   givenName?: string | null;
   surname?: string | null;
+  marriedSurnames?: string[] | null;
   suffix?: string | null;
   sex?: "M" | "F" | "U" | null;
   avatarUrl?: string | null;
@@ -55,8 +56,15 @@ export function toFamilyChart(
   const byId = new Map<string, FamilyChartDatum>();
 
   for (const p of persons) {
-    // Display the suffix (Jr/Sr/III) alongside the surname.
-    const lastName = [p.surname, p.suffix].filter(Boolean).join(" ");
+    // Show married name(s) as the displayed surname, with the birth surname in
+    // parentheses — e.g. "Doe (Smith)" or "Doe / Roe (Smith)".
+    const married = (p.marriedSurnames ?? []).filter(Boolean);
+    const primary = married.length ? married.join(" / ") : (p.surname ?? "");
+    const maiden =
+      married.length && p.surname && !married.includes(p.surname)
+        ? `(${p.surname})`
+        : "";
+    const lastName = [primary, p.suffix, maiden].filter(Boolean).join(" ");
     byId.set(p.id, {
       id: p.id,
       data: {
