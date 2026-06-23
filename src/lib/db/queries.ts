@@ -402,6 +402,19 @@ export async function getTreeSources(treeId: string): Promise<TreeSource[]> {
     .sort((a, b) => b.references.length - a.references.length);
 }
 
+/** A person's life events (birth, death, residence, …), in document order. */
+export async function getPersonEvents(personId: string) {
+  return db
+    .select({
+      id: events.id,
+      type: events.type,
+      dateRaw: events.dateRaw,
+      place: events.place,
+    })
+    .from(events)
+    .where(and(eq(events.personId, personId), eq(events.subject, "person")));
+}
+
 /** Stories attached to a person, newest first, with the author's name. */
 export async function getPersonStories(personId: string) {
   return db

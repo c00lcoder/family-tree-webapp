@@ -79,22 +79,34 @@ function findChild(node: GedcomNode, tag: string): GedcomNode | undefined {
   return node.children.find((c) => c.tag === tag);
 }
 
+// Known life events / attributes worth keeping even without a date or place.
+const KNOWN_EVENT_TAGS = new Set([
+  "BIRT", "DEAT", "MARR", "DIV", "BURI", "CHR", "BAPM", "ENGA", "RESI",
+  "CENS", "OCCU", "EDUC", "GRAD", "RETI", "IMMI", "EMIG", "NATU", "PROB",
+  "WILL", "EVEN", "CONF", "ADOP", "BAPL", "ORDN", "MARB", "MARL",
+]);
+
+// Structural sub-records that are never events.
+const NON_EVENT_TAGS = new Set([
+  "NAME", "SEX", "FAMC", "FAMS", "HUSB", "WIFE", "CHIL", "SOUR", "NOTE",
+  "OBJE", "CHAN", "RIN", "RFN", "AFN", "SUBM", "ANCI", "DESI", "RESN",
+  "_UID", "_APID", "_WPID", "_HPID", "_TREE", "_ENV", "ASSO", "ALIA", "REFN",
+]);
+
+/**
+ * Capture life events and attributes: anything recognized as an event, plus any
+ * other sub-record that carries a date or place (e.g. residence, census). This
+ * keeps far more of the file than a fixed whitelist would.
+ */
 function extractEvents(node: GedcomNode): GedcomEvent[] {
-  const eventTags = new Set([
-    "BIRT",
-    "DEAT",
-    "MARR",
-    "DIV",
-    "BURI",
-    "CHR",
-    "BAPM",
-    "ENGA",
-  ]);
   const events: GedcomEvent[] = [];
   for (const child of node.children) {
-    if (!eventTags.has(child.tag)) continue;
+    if (NON_EVENT_TAGS.has(child.tag)) continue;
     const date = findChild(child, "DATE")?.value?.trim();
     const place = findChild(child, "PLAC")?.value?.trim();
+    const isEvent =
+      KNOWN_EVENT_TAGS.has(child.tag) || Boolean(date) || Boolean(place);
+    if (!isEvent) continue;
     events.push({
       type: child.tag,
       ...(date ? { date } : {}),

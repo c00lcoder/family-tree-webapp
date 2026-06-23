@@ -100,6 +100,24 @@ describe("parseGedcom edge cases", () => {
     expect(p.surname).toBe("Ng");
   });
 
+  it("captures residence (and other dated/placed) events, not just births", () => {
+    const ged = [
+      "0 @I1@ INDI",
+      "1 NAME George /Crawford/",
+      "1 BIRT",
+      "2 DATE 1920",
+      "1 RESI",
+      "2 DATE 1956",
+      "2 PLAC Atlanta, Georgia",
+      "0 TRLR",
+    ].join("\n");
+    const p = parseGedcom(ged).individuals[0];
+    const resi = p.events.find((e) => e.type === "RESI");
+    expect(resi).toBeDefined();
+    expect(resi?.place).toBe("Atlanta, Georgia");
+    expect(p.events.find((e) => e.type === "BIRT")?.date).toBe("1920");
+  });
+
   it("parses multiple married names from typed NAME records", () => {
     const ged = [
       "0 @I1@ INDI",

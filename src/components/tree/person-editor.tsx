@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BookText, ImagePlus, ScrollText, UserPlus, X } from "lucide-react";
+import {
+  BookText,
+  CalendarClock,
+  ImagePlus,
+  ScrollText,
+  UserPlus,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { uploadImage } from "@/lib/media";
@@ -26,6 +33,13 @@ interface PersonStory {
   authorName: string | null;
   authorEmail: string | null;
   canDelete: boolean;
+}
+
+interface PersonEvent {
+  id: string;
+  type: string;
+  dateRaw: string | null;
+  place: string | null;
 }
 
 interface PersonEditorProps {
@@ -68,6 +82,7 @@ export function PersonEditor({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sources, setSources] = useState<PersonSource[]>([]);
+  const [events, setEvents] = useState<PersonEvent[]>([]);
   const [stories, setStories] = useState<PersonStory[]>([]);
   const [storyTitle, setStoryTitle] = useState("");
   const [storyBody, setStoryBody] = useState("");
@@ -78,6 +93,12 @@ export function PersonEditor({
       .then((r) => (r.ok ? r.json() : []))
       .then((data: PersonSource[]) => {
         if (active) setSources(data);
+      })
+      .catch(() => {});
+    fetch(`/api/persons/${person.id}/events`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: PersonEvent[]) => {
+        if (active) setEvents(data);
       })
       .catch(() => {});
     return () => {
@@ -432,6 +453,26 @@ export function PersonEditor({
             {error}
           </p>
         ) : null}
+
+        {events.length > 0 && (
+          <div className="mt-6 border-t border-border pt-5">
+            <h3 className="flex items-center gap-2 text-lg font-bold">
+              <CalendarClock className="h-5 w-5 text-primary" aria-hidden />
+              Life events ({events.length})
+            </h3>
+            <ul className="mt-3 space-y-1 text-sm">
+              {events.map((e) => (
+                <li key={e.id} className="text-muted-foreground">
+                  <span className="font-semibold text-foreground">
+                    {eventLabel(e.type)}
+                  </span>
+                  {e.dateRaw ? ` · ${e.dateRaw}` : ""}
+                  {e.place ? ` · ${e.place}` : ""}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {sources.length > 0 && (
           <div className="mt-6 border-t border-border pt-5">
